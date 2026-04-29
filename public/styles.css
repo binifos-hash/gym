@@ -361,7 +361,8 @@ h3 {
 
 .workout-start-btn,
 .workout-control-btn,
-.workout-stop-btn {
+.workout-stop-btn,
+.workout-cancel-btn {
   border: none;
   border-radius: 12px;
   padding: 12px 18px;
@@ -386,6 +387,20 @@ h3 {
   background: rgba(255, 92, 53, 0.18);
   color: #ff8a70;
   border: 1px solid rgba(255, 92, 53, 0.4);
+}
+
+.workout-cancel-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.workout-planned-note {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
 }
 
 .workout-exercise-list {
@@ -435,6 +450,13 @@ h3 {
   margin-top: 0;
   width: 18px;
   height: 18px;
+  justify-self: center;
+}
+
+.exercise-line-check-placeholder {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
   justify-self: center;
 }
 

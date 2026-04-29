@@ -905,6 +905,11 @@ function createActionButton(label, className, onClick) {
 }
 
 async function handleStartWorkout(session) {
+  if (session.date !== getTodayKey()) {
+    alert("Puoi iniziare solo l'allenamento del giorno corrente.");
+    return;
+  }
+
   session.status = "in_progress";
   session.durationSeconds = 0;
   session.activeStartedAt = new Date().toISOString();
@@ -937,6 +942,23 @@ async function handleFinishWorkout(session) {
   session.activeStartedAt = null;
   session.status = "completed";
   session.completedAt = new Date().toISOString();
+  await saveWorkoutSessions();
+  renderWeekCards();
+  renderCalendar();
+  renderWorkoutDetail();
+  renderPersonal();
+}
+
+async function handleCancelWorkout(session) {
+  session.status = "planned";
+  session.durationSeconds = 0;
+  session.activeStartedAt = null;
+  session.completedAt = null;
+  session.exercises = session.exercises.map((exercise) => ({
+    ...exercise,
+    completed: false
+  }));
+
   await saveWorkoutSessions();
   renderWeekCards();
   renderCalendar();
@@ -977,9 +999,16 @@ function renderWorkoutDetail() {
   }
 
   if (session.status === "planned") {
-    workoutActionsEl.appendChild(createActionButton("INIZIA ALLENAMENTO", "workout-start-btn", async () => {
-      await handleStartWorkout(session);
-    }));
+    if (session.date === getTodayKey()) {
+      workoutActionsEl.appendChild(createActionButton("INIZIA ALLENAMENTO", "workout-start-btn", async () => {
+        await handleStartWorkout(session);
+      }));
+    } else {
+      const plannedNote = document.createElement("div");
+      plannedNote.className = "workout-planned-note";
+      plannedNote.textContent = "Puoi iniziare questo allenamento solo nel giorno programmato.";
+      workoutActionsEl.appendChild(plannedNote);
+    }
   }
 
   if (session.status === "in_progress" || session.status === "paused") {
@@ -989,10 +1018,15 @@ function renderWorkoutDetail() {
     workoutActionsEl.appendChild(createActionButton("■ Fine", "workout-stop-btn", async () => {
       await handleFinishWorkout(session);
     }));
+    workoutActionsEl.appendChild(createActionButton("↺ Annulla", "workout-cancel-btn", async () => {
+      await handleCancelWorkout(session);
+    }));
   }
 
   const timeline = document.createElement("div");
   timeline.className = "exercise-timeline";
+
+  const showCheckbox = session.status === "in_progress" || session.status === "paused";
 
   session.exercises.forEach((exercise, index) => {
     const row = document.createElement("label");
@@ -1001,18 +1035,24 @@ function renderWorkoutDetail() {
     const point = document.createElement("span");
     point.className = "exercise-line-point";
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = exercise.completed;
-    checkbox.disabled = session.status !== "in_progress";
+    let checkbox = null;
+    if (showCheckbox) {
+      checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = exercise.completed;
+      checkbox.disabled = session.status !== "in_progress";
 
-    checkbox.addEventListener("change", async () => {
-      session.exercises[index].completed = checkbox.checked;
-      await saveWorkoutSessions();
-      renderWeekCards();
-      renderCalendar();
-      renderWorkoutDetail();
-    });
+      checkbox.addEventListener("change", async () => {
+        session.exercises[index].completed = checkbox.checked;
+        await saveWorkoutSessions();
+        renderWeekCards();
+        renderCalendar();
+        renderWorkoutDetail();
+      });
+    } else {
+      checkbox = document.createElement("span");
+      checkbox.className = "exercise-line-check-placeholder";
+    }
 
     const content = document.createElement("div");
     content.className = "exercise-line-content";
