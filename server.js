@@ -11,11 +11,46 @@ app.use(express.static(path.join(__dirname, "public")));
 
 function readState() {
   const raw = fs.readFileSync(DATA_FILE, "utf8");
-  return JSON.parse(raw);
+  return ensureStateShape(JSON.parse(raw));
 }
 
 function writeState(state) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf8");
+  fs.writeFileSync(DATA_FILE, JSON.stringify(ensureStateShape(state), null, 2), "utf8");
+}
+
+function ensureStateShape(state) {
+  if (!state || typeof state !== "object") {
+    state = {};
+  }
+
+  if (!state.exerciseLibrary || typeof state.exerciseLibrary !== "object") {
+    state.exerciseLibrary = {
+      bench_dumbbell_barbell: [],
+      toorx_msx50: []
+    };
+  }
+
+  if (!state.weekTemplate || typeof state.weekTemplate !== "object") {
+    state.weekTemplate = {};
+  }
+
+  if (!state.progress || typeof state.progress !== "object") {
+    state.progress = {};
+  }
+
+  if (!state.personal || typeof state.personal !== "object") {
+    state.personal = {
+      profileName: "",
+      metrics: [],
+      diary: []
+    };
+  }
+
+  if (!state.workoutSessions || typeof state.workoutSessions !== "object") {
+    state.workoutSessions = {};
+  }
+
+  return state;
 }
 
 function isValidWeekTemplate(weekTemplate) {
@@ -50,6 +85,36 @@ function isValidPersonal(personal) {
   }
 
   return true;
+}
+
+function isValidWorkoutSessions(workoutSessions) {
+  if (!workoutSessions || typeof workoutSessions !== "object") {
+    return false;
+  }
+
+  return Object.values(workoutSessions).every((session) => {
+    if (!session || typeof session !== "object") {
+      return false;
+    }
+
+    if (typeof session.date !== "string" || typeof session.day !== "string") {
+      return false;
+    }
+
+    if (!Array.isArray(session.exercises)) {
+      return false;
+    }
+
+    if (typeof session.status !== "string") {
+      return false;
+    }
+
+    if (session.durationSeconds != null && typeof session.durationSeconds !== "number") {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 app.get("/api/state", (req, res) => {
@@ -121,6 +186,24 @@ app.put("/api/personal", (req, res) => {
     return res.json({ ok: true, personal: state.personal });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio sezione personale" });
+  }
+});
+
+app.put("/api/workout-sessions", (req, res) => {
+  try {
+    const { workoutSessions } = req.body;
+
+    if (!isValidWorkoutSessions(workoutSessions)) {
+      return res.status(400).json({ error: "Payload workoutSessions non valido" });
+    }
+
+    const state = readState();
+    state.workoutSessions = workoutSessions;
+    writeState(state);
+
+    return res.json({ ok: true, workoutSessions: state.workoutSessions });
+  } catch (error) {
+    return res.status(500).json({ error: "Errore salvataggio workout sessions" });
   }
 });
 

@@ -64,7 +64,62 @@
     </section>
 
     <section id="tab-week" class="tab-panel active">
-      <div class="week" id="weekContainer"></div>
+      <div id="weekOverview" class="week-overview">
+        <div class="week-toolbar">
+          <button id="openCalendarBtn" class="calendar-btn" type="button" aria-label="Apri calendario allenamenti">
+            <span class="calendar-btn-icon">▦</span>
+            <span>Calendario</span>
+          </button>
+        </div>
+        <div class="week" id="weekContainer"></div>
+      </div>
+
+      <section id="workoutDetail" class="workout-detail hidden">
+        <button id="backToWeekBtn" class="back-btn" type="button">← Torna alla settimana</button>
+        <div class="workout-detail-head">
+          <div>
+            <p id="workoutDetailKicker" class="workout-kicker"></p>
+            <h2 id="workoutDetailTitle">Allenamento</h2>
+            <p id="workoutDetailMeta" class="workout-detail-meta"></p>
+          </div>
+          <div class="workout-summary-block">
+            <div id="workoutTimer" class="workout-timer hidden">00:00:00</div>
+            <div id="workoutCompletedSummary" class="workout-completed-summary hidden"></div>
+          </div>
+        </div>
+
+        <div id="workoutActions" class="workout-actions"></div>
+        <div id="workoutExerciseList" class="workout-exercise-list"></div>
+      </section>
+
+      <div id="calendarModal" class="calendar-modal hidden">
+        <div class="calendar-backdrop"></div>
+        <div class="calendar-panel panel-card">
+          <div class="calendar-head">
+            <button id="calendarPrevBtn" class="calendar-nav" type="button">‹</button>
+            <h2 id="calendarMonthLabel">Calendario</h2>
+            <div class="calendar-head-actions">
+              <button id="calendarNextBtn" class="calendar-nav" type="button">›</button>
+              <button id="closeCalendarBtn" class="calendar-close" type="button">✕</button>
+            </div>
+          </div>
+          <div class="calendar-legend">
+            <span><i class="legend-dot legend-done"></i>Fatto</span>
+            <span><i class="legend-dot legend-planned"></i>Programmato</span>
+            <span><i class="legend-dot legend-missed"></i>Perso</span>
+          </div>
+          <div class="calendar-weekdays">
+            <span>Lun</span>
+            <span>Mar</span>
+            <span>Mer</span>
+            <span>Gio</span>
+            <span>Ven</span>
+            <span>Sab</span>
+            <span>Dom</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+      </div>
     </section>
 
     <section id="tab-personal" class="tab-panel">

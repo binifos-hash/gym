@@ -38,10 +38,16 @@ const trainingTypeOptions = [
   "Full Body"
 ];
 
+const WORKOUT_SYNC_PAST_DAYS = 90;
+const WORKOUT_SYNC_FUTURE_DAYS = 180;
+
 let state = null;
-let openCard = null;
+let workoutDetailDate = null;
+let calendarMonthCursor = startOfMonth(new Date());
+let timerIntervalId = null;
 
 const weekContainerEl = document.getElementById("weekContainer");
+const weekOverviewEl = document.getElementById("weekOverview");
 const freeWeightListEl = document.getElementById("freeWeightList");
 const toorxListEl = document.getElementById("toorxList");
 const editorDaySelectEl = document.getElementById("editorDaySelect");
@@ -54,6 +60,24 @@ const weekNumEl = document.getElementById("weekNum");
 const dayCountEl = document.getElementById("dayCount");
 const exerciseCountEl = document.getElementById("exerciseCount");
 const weekRangeEl = document.getElementById("weekRange");
+
+const openCalendarBtn = document.getElementById("openCalendarBtn");
+const backToWeekBtn = document.getElementById("backToWeekBtn");
+const workoutDetailEl = document.getElementById("workoutDetail");
+const workoutDetailKickerEl = document.getElementById("workoutDetailKicker");
+const workoutDetailTitleEl = document.getElementById("workoutDetailTitle");
+const workoutDetailMetaEl = document.getElementById("workoutDetailMeta");
+const workoutActionsEl = document.getElementById("workoutActions");
+const workoutTimerEl = document.getElementById("workoutTimer");
+const workoutCompletedSummaryEl = document.getElementById("workoutCompletedSummary");
+const workoutExerciseListEl = document.getElementById("workoutExerciseList");
+
+const calendarModalEl = document.getElementById("calendarModal");
+const calendarGridEl = document.getElementById("calendarGrid");
+const calendarMonthLabelEl = document.getElementById("calendarMonthLabel");
+const calendarPrevBtn = document.getElementById("calendarPrevBtn");
+const calendarNextBtn = document.getElementById("calendarNextBtn");
+const closeCalendarBtn = document.getElementById("closeCalendarBtn");
 
 const profileNameEl = document.getElementById("profileName");
 const addMetricBtn = document.getElementById("addMetricBtn");
@@ -81,11 +105,49 @@ function getMonday(date = new Date()) {
   return d;
 }
 
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
 function formatDate(date) {
   return date.toLocaleDateString("it-IT", {
     day: "2-digit",
     month: "2-digit"
   });
+}
+
+function formatLongDate(date) {
+  return date.toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
+}
+
+function formatMonthYear(date) {
+  return date.toLocaleDateString("it-IT", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function formatIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateFromIso(dateKey) {
+  return new Date(`${dateKey}T00:00:00`);
+}
+
+function getTodayKey() {
+  return formatIsoDate(new Date());
+}
+
+function getDayFromDate(date) {
+  return days[(date.getDay() + 6) % 7];
 }
 
 function getWeekContext() {
@@ -105,6 +167,14 @@ function getWeekNum() {
   const start = new Date(now.getFullYear(), 0, 1);
   const dayOfYear = Math.floor((now - start) / 86400000) + 1;
   return Math.ceil(dayOfYear / 7);
+}
+
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds || 0));
+  const hours = String(Math.floor(safeSeconds / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((safeSeconds % 3600) / 60)).padStart(2, "0");
+  const seconds = String(safeSeconds % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
 }
 
 function inferExerciseMeta(name) {
@@ -185,12 +255,213 @@ function normalizeWeekTemplate() {
   });
 }
 
-function getExerciseProgressKey(exercise) {
-  const base = `${exercise.name}|${exercise.trainingType}`;
-  if (exercise.supportsWeight && typeof exercise.weight === "number") {
-    return `${base}|${exercise.weight}`;
+function cloneExercisesForSession(exercises) {
+  return exercises
+    .map(normalizeExerciseEntry)
+    .filter(Boolean)
+    .map((exercise) => ({
+      ...exercise,
+      completed: false
+    }));
+}
+
+function normalizeWorkoutSession(session, dateKey) {
+  if (!session || typeof session !== "object") {
+    return null;
   }
-  return base;
+
+  const resolvedDate = session.date || dateKey;
+  if (!resolvedDate) {
+    return null;
+  }
+
+  const dateObj = dateFromIso(resolvedDate);
+  const day = session.day || getDayFromDate(dateObj);
+  const normalizedExercises = Array.isArray(session.exercises)
+    ? session.exercises
+      .map((exercise) => {
+        const normalized = normalizeExerciseEntry(exercise);
+        if (!normalized) {
+          return null;
+        }
+
+        return {
+          ...normalized,
+          completed: Boolean(exercise && exercise.completed)
+        };
+      })
+      .filter(Boolean)
+    : [];
+
+  const validStatuses = ["planned", "in_progress", "paused", "completed", "missed"];
+  const status = validStatuses.includes(session.status) ? session.status : (resolvedDate < getTodayKey() ? "missed" : "planned");
+
+  return {
+    date: resolvedDate,
+    day,
+    status,
+    exercises: normalizedExercises,
+    durationSeconds: Number.isFinite(session.durationSeconds) ? session.durationSeconds : 0,
+    activeStartedAt: session.activeStartedAt || null,
+    completedAt: session.completedAt || null
+  };
+}
+
+function normalizeWorkoutSessions() {
+  if (!state.workoutSessions || typeof state.workoutSessions !== "object") {
+    state.workoutSessions = {};
+  }
+
+  const nextSessions = {};
+  Object.entries(state.workoutSessions).forEach(([dateKey, session]) => {
+    const normalized = normalizeWorkoutSession(session, dateKey);
+    if (normalized) {
+      nextSessions[normalized.date] = normalized;
+    }
+  });
+
+  state.workoutSessions = nextSessions;
+}
+
+function getTemplateExercisesForDate(dateKey) {
+  const day = getDayFromDate(dateFromIso(dateKey));
+  return cloneExercisesForSession(state.weekTemplate[day] || []);
+}
+
+function createWorkoutSession(dateKey, exercises) {
+  return {
+    date: dateKey,
+    day: getDayFromDate(dateFromIso(dateKey)),
+    status: dateKey < getTodayKey() ? "missed" : "planned",
+    exercises: cloneExercisesForSession(exercises),
+    durationSeconds: 0,
+    activeStartedAt: null,
+    completedAt: null
+  };
+}
+
+function syncWorkoutSessionsRange() {
+  normalizeWorkoutSessions();
+
+  let changed = false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = formatIsoDate(today);
+
+  for (let offset = -WORKOUT_SYNC_PAST_DAYS; offset <= WORKOUT_SYNC_FUTURE_DAYS; offset += 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + offset);
+    const dateKey = formatIsoDate(date);
+    const templateExercises = getTemplateExercisesForDate(dateKey);
+    const existing = state.workoutSessions[dateKey];
+
+    if (!existing) {
+      if (templateExercises.length) {
+        state.workoutSessions[dateKey] = createWorkoutSession(dateKey, templateExercises);
+        changed = true;
+      }
+      continue;
+    }
+
+    if (existing.status === "completed") {
+      continue;
+    }
+
+    if (dateKey < todayKey) {
+      if (existing.status !== "missed") {
+        existing.durationSeconds = getSessionElapsedSeconds(existing);
+        existing.activeStartedAt = null;
+        existing.status = "missed";
+        changed = true;
+      }
+      continue;
+    }
+
+    if (existing.status === "in_progress" || existing.status === "paused") {
+      continue;
+    }
+
+    if (!templateExercises.length) {
+      delete state.workoutSessions[dateKey];
+      changed = true;
+      continue;
+    }
+
+    const nextSnapshot = createWorkoutSession(dateKey, templateExercises);
+    const currentComparable = JSON.stringify(existing.exercises.map(({ completed, ...exercise }) => exercise));
+    const nextComparable = JSON.stringify(nextSnapshot.exercises.map(({ completed, ...exercise }) => exercise));
+    if (currentComparable !== nextComparable || existing.status !== "planned") {
+      state.workoutSessions[dateKey] = {
+        ...nextSnapshot,
+        status: "planned"
+      };
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function getSessionElapsedSeconds(session) {
+  if (!session) {
+    return 0;
+  }
+
+  let total = Number.isFinite(session.durationSeconds) ? session.durationSeconds : 0;
+
+  if (session.status === "in_progress" && session.activeStartedAt) {
+    total += Math.max(0, Math.floor((Date.now() - new Date(session.activeStartedAt).getTime()) / 1000));
+  }
+
+  return total;
+}
+
+function getCompletedExerciseCount(session) {
+  return session.exercises.filter((exercise) => exercise.completed).length;
+}
+
+function getSessionVisualStatus(session, dateKey) {
+  if (!session || !session.exercises.length) {
+    return "rest";
+  }
+
+  if (session.status === "completed") {
+    return "done";
+  }
+
+  if (dateKey < getTodayKey()) {
+    return "missed";
+  }
+
+  if (session.status === "paused") {
+    return "paused";
+  }
+
+  if (session.status === "in_progress") {
+    return "live";
+  }
+
+  return "planned";
+}
+
+function getSessionStatusLabel(session, dateKey) {
+  const visualStatus = getSessionVisualStatus(session, dateKey);
+  if (visualStatus === "done") {
+    return "Completato";
+  }
+  if (visualStatus === "missed") {
+    return "Perso";
+  }
+  if (visualStatus === "paused") {
+    return "In pausa";
+  }
+  if (visualStatus === "live") {
+    return "In corso";
+  }
+  if (visualStatus === "planned") {
+    return "Programmato";
+  }
+  return "Riposo";
 }
 
 function ensurePersonalDefaults() {
@@ -216,6 +487,7 @@ async function loadState() {
   state = await res.json();
   ensurePersonalDefaults();
   normalizeWeekTemplate();
+  normalizeWorkoutSessions();
 }
 
 async function saveWeekTemplate() {
@@ -227,24 +499,28 @@ async function saveWeekTemplate() {
 
   if (!res.ok) {
     alert("Errore nel salvataggio settimana");
-    return;
+    return false;
   }
 
+  syncWorkoutSessionsRange();
+  await saveWorkoutSessions();
   alert("Settimana salvata con successo");
+  return true;
 }
 
-async function saveExerciseProgress(day, exercise, completed) {
-  const { weekKey } = getWeekContext();
-
-  const res = await fetch("/api/progress", {
+async function saveWorkoutSessions() {
+  const res = await fetch("/api/workout-sessions", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ weekKey, day, exercise, completed })
+    body: JSON.stringify({ workoutSessions: state.workoutSessions })
   });
 
   if (!res.ok) {
-    alert("Errore nel salvataggio progress");
+    alert("Errore nel salvataggio allenamenti");
+    return false;
   }
+
+  return true;
 }
 
 async function savePersonalState() {
@@ -256,7 +532,10 @@ async function savePersonalState() {
 
   if (!res.ok) {
     alert("Errore nel salvataggio sezione personale");
+    return false;
   }
+
+  return true;
 }
 
 function updateStats() {
@@ -268,7 +547,7 @@ function updateStats() {
   const { monday, sunday } = getWeekContext();
 
   weekNumEl.textContent = getWeekNum();
-  dayCountEl.textContent = days.filter((d) => (state.weekTemplate[d] || []).length > 0).length;
+  dayCountEl.textContent = days.filter((day) => (state.weekTemplate[day] || []).length > 0).length;
   exerciseCountEl.textContent = totalExercises;
   weekRangeEl.textContent = `${formatDate(monday)} - ${formatDate(sunday)}`;
 }
@@ -293,27 +572,28 @@ function renderLibrarySection() {
 }
 
 function renderWeekCards() {
-  const { monday, weekKey } = getWeekContext();
+  const { monday } = getWeekContext();
   weekContainerEl.innerHTML = "";
 
   days.forEach((day, index) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
+    const dateKey = formatIsoDate(date);
+    const session = state.workoutSessions[dateKey];
+    const exercises = session ? session.exercises : [];
+    const visualStatus = getSessionVisualStatus(session, dateKey);
+    const isRest = !session || !exercises.length;
 
-    const dayExercises = (state.weekTemplate[day] || []).map(normalizeExerciseEntry).filter(Boolean);
-    state.weekTemplate[day] = dayExercises;
-    const dayProgress = (state.progress[weekKey] && state.progress[weekKey][day]) || {};
-    const isOpen = openCard === day;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = `day-card day-card-${visualStatus}`;
+    card.disabled = isRest;
+    if (!isRest) {
+      card.addEventListener("click", () => openWorkoutDetail(dateKey));
+    }
 
-    const card = document.createElement("div");
-    card.className = `day-card ${isOpen ? "open" : ""}`;
-
-    const header = document.createElement("div");
-    header.className = "day-header";
-    header.addEventListener("click", () => {
-      openCard = openCard === day ? null : day;
-      renderWeekCards();
-    });
+    const head = document.createElement("div");
+    head.className = "day-header";
 
     const dayLeft = document.createElement("div");
     dayLeft.className = "day-left";
@@ -324,103 +604,54 @@ function renderWeekCards() {
 
     const dayInfo = document.createElement("div");
 
-    const dayTitle = document.createElement("div");
-    dayTitle.className = "day-title";
-    dayTitle.textContent = `${dayLabels[day]} ${formatDate(date)}`;
+    const title = document.createElement("div");
+    title.className = "day-title";
+    title.textContent = `${dayLabels[day]} ${formatDate(date)}`;
 
-    const dayFocus = document.createElement("div");
-    dayFocus.className = "day-focus";
-    dayFocus.textContent = dayExercises.length > 0 ? `${dayExercises.length} esercizi` : "riposo";
+    const focus = document.createElement("div");
+    focus.className = "day-focus";
+    if (isRest) {
+      focus.textContent = "Riposo";
+    } else if (visualStatus === "done") {
+      focus.textContent = `${getCompletedExerciseCount(session)}/${session.exercises.length} esercizi completati`;
+    } else if (visualStatus === "missed") {
+      focus.textContent = `${session.exercises.length} esercizi non completati`;
+    } else {
+      focus.textContent = `${session.exercises.length} esercizi`;
+    }
 
-    dayInfo.appendChild(dayTitle);
-    dayInfo.appendChild(dayFocus);
+    dayInfo.appendChild(title);
+    dayInfo.appendChild(focus);
     dayLeft.appendChild(dayNum);
     dayLeft.appendChild(dayInfo);
 
-    const rightContainer = document.createElement("div");
-    rightContainer.style.display = "flex";
-    rightContainer.style.alignItems = "center";
-    rightContainer.style.gap = "10px";
+    const right = document.createElement("div");
+    right.className = "day-right";
 
-    if (dayExercises.length > 0) {
-      const badge = document.createElement("span");
-      badge.className = "day-badge";
-      badge.textContent = "Allenamento";
-      rightContainer.appendChild(badge);
+    const badge = document.createElement("span");
+    badge.className = `day-badge day-badge-${visualStatus}`;
+    badge.textContent = getSessionStatusLabel(session, dateKey);
+    right.appendChild(badge);
+
+    if (!isRest && session.status === "completed") {
+      const timeChip = document.createElement("span");
+      timeChip.className = "day-time-chip";
+      timeChip.textContent = formatDuration(session.durationSeconds);
+      right.appendChild(timeChip);
     }
 
-    const chevron = document.createElement("span");
-    chevron.className = "chevron";
-    chevron.textContent = "▾";
-    rightContainer.appendChild(chevron);
+    head.appendChild(dayLeft);
+    head.appendChild(right);
+    card.appendChild(head);
 
-    header.appendChild(dayLeft);
-    header.appendChild(rightContainer);
-
-    const body = document.createElement("div");
-    body.className = "day-body";
-    const exercises = document.createElement("div");
-    exercises.className = "exercises";
-
-    dayExercises.forEach((exercise) => {
-      const progressKey = getExerciseProgressKey(exercise);
-      const done = !!dayProgress[progressKey] || !!dayProgress[exercise.name];
-
-      const ex = document.createElement("div");
-      ex.className = "ex";
-
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.className = "ex-check";
-      checkbox.checked = done;
-
-      const exName = document.createElement("div");
-      exName.className = "ex-name";
-      exName.textContent = exercise.name;
-
-      const exMeta = document.createElement("div");
-      exMeta.className = "ex-meta";
-      exMeta.textContent = `${exercise.trainingType} · ${exercise.category}${exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : ""}`;
-
-      const exInfo = document.createElement("div");
-      exInfo.className = "ex-info";
-      exInfo.appendChild(exName);
-      exInfo.appendChild(exMeta);
-
-      const sets = document.createElement("div");
-      sets.className = "ex-sets";
-      sets.innerHTML = exercise.supportsWeight && typeof exercise.weight === "number"
-        ? `<div class="sets-main">${exercise.weight} kg</div><div class="sets-label">carico</div>`
-        : '<div class="sets-main">3x10</div><div class="sets-label">serie x rip.</div>';
-
-      checkbox.addEventListener("change", async () => {
-        if (!state.progress[weekKey]) {
-          state.progress[weekKey] = {};
-        }
-        if (!state.progress[weekKey][day]) {
-          state.progress[weekKey][day] = {};
-        }
-
-        state.progress[weekKey][day][progressKey] = checkbox.checked;
-        await saveExerciseProgress(day, progressKey, checkbox.checked);
-      });
-
-      ex.appendChild(checkbox);
-      ex.appendChild(exInfo);
-      ex.appendChild(sets);
-      exercises.appendChild(ex);
-    });
-
-    if (!dayExercises.length) {
-      const noExercises = document.createElement("div");
-      noExercises.className = "ex";
-      noExercises.textContent = "Nessun esercizio pianificato per questo giorno.";
-      exercises.appendChild(noExercises);
+    if (!isRest) {
+      const preview = document.createElement("div");
+      preview.className = "day-preview";
+      const previewNames = exercises.slice(0, 3).map((exercise) => exercise.name).join(" · ");
+      preview.textContent = previewNames;
+      card.appendChild(preview);
     }
 
-    body.appendChild(exercises);
-    card.appendChild(header);
-    card.appendChild(body);
     weekContainerEl.appendChild(card);
   });
 }
@@ -496,7 +727,12 @@ function renderEditor() {
         weight: null
       });
       renderEditor();
+      syncWorkoutSessionsRange();
       renderWeekCards();
+      renderCalendar();
+      if (workoutDetailDate) {
+        renderWorkoutDetail();
+      }
       updateStats();
     });
 
@@ -541,7 +777,12 @@ function renderEditor() {
 
     typeSelect.addEventListener("change", () => {
       exercise.trainingType = typeSelect.value;
+      syncWorkoutSessionsRange();
       renderWeekCards();
+      renderCalendar();
+      if (workoutDetailDate) {
+        renderWorkoutDetail();
+      }
     });
 
     controls.appendChild(typeSelect);
@@ -561,7 +802,12 @@ function renderEditor() {
           const value = Number(weightInput.value);
           exercise.weight = Number.isNaN(value) ? null : value;
         }
+        syncWorkoutSessionsRange();
         renderWeekCards();
+        renderCalendar();
+        if (workoutDetailDate) {
+          renderWorkoutDetail();
+        }
       });
 
       controls.appendChild(weightInput);
@@ -574,7 +820,12 @@ function renderEditor() {
     removeBtn.addEventListener("click", () => {
       state.weekTemplate[currentDay] = state.weekTemplate[currentDay].filter((_, index) => index !== exerciseIndex);
       renderEditor();
+      syncWorkoutSessionsRange();
       renderWeekCards();
+      renderCalendar();
+      if (workoutDetailDate) {
+        renderWorkoutDetail();
+      }
       updateStats();
     });
 
@@ -587,6 +838,244 @@ function renderEditor() {
 
   if (!plannedExercises.length) {
     dayExerciseListEl.innerHTML = '<li class="day-ex-empty">Nessun esercizio nel giorno selezionato.</li>';
+  }
+}
+
+function openWorkoutDetail(dateKey) {
+  const session = state.workoutSessions[dateKey];
+  if (!session || !session.exercises.length) {
+    return;
+  }
+
+  workoutDetailDate = dateKey;
+  renderWorkoutDetail();
+  toggleWorkoutDetail(true);
+}
+
+function toggleWorkoutDetail(isOpen) {
+  weekOverviewEl.classList.toggle("hidden", isOpen);
+  workoutDetailEl.classList.toggle("hidden", !isOpen);
+}
+
+function closeWorkoutDetail() {
+  workoutDetailDate = null;
+  stopTimerLoop();
+  toggleWorkoutDetail(false);
+}
+
+function startTimerLoop() {
+  stopTimerLoop();
+  timerIntervalId = window.setInterval(() => {
+    if (!workoutDetailDate) {
+      return;
+    }
+    const session = state.workoutSessions[workoutDetailDate];
+    if (!session || session.status !== "in_progress") {
+      stopTimerLoop();
+      return;
+    }
+    workoutTimerEl.textContent = formatDuration(getSessionElapsedSeconds(session));
+  }, 1000);
+}
+
+function stopTimerLoop() {
+  if (timerIntervalId) {
+    window.clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+}
+
+function createActionButton(label, className, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+async function handleStartWorkout(session) {
+  session.status = "in_progress";
+  session.durationSeconds = 0;
+  session.activeStartedAt = new Date().toISOString();
+  await saveWorkoutSessions();
+  renderWeekCards();
+  renderCalendar();
+  renderWorkoutDetail();
+}
+
+async function handlePauseWorkout(session) {
+  if (session.status === "in_progress") {
+    session.durationSeconds = getSessionElapsedSeconds(session);
+    session.activeStartedAt = null;
+    session.status = "paused";
+  } else if (session.status === "paused") {
+    session.status = "in_progress";
+    session.activeStartedAt = new Date().toISOString();
+  }
+
+  await saveWorkoutSessions();
+  renderWeekCards();
+  renderCalendar();
+  renderWorkoutDetail();
+}
+
+async function handleFinishWorkout(session) {
+  session.durationSeconds = getSessionElapsedSeconds(session);
+  session.activeStartedAt = null;
+  session.status = "completed";
+  session.completedAt = new Date().toISOString();
+  await saveWorkoutSessions();
+  renderWeekCards();
+  renderCalendar();
+  renderWorkoutDetail();
+}
+
+function renderWorkoutDetail() {
+  const session = workoutDetailDate ? state.workoutSessions[workoutDetailDate] : null;
+  if (!session) {
+    closeWorkoutDetail();
+    return;
+  }
+
+  const date = dateFromIso(session.date);
+  workoutDetailKickerEl.textContent = dayLabels[session.day];
+  workoutDetailTitleEl.textContent = formatLongDate(date);
+  workoutDetailMetaEl.textContent = `${session.exercises.length} esercizi · ${getSessionStatusLabel(session, session.date)}`;
+
+  workoutActionsEl.innerHTML = "";
+  workoutExerciseListEl.innerHTML = "";
+
+  workoutTimerEl.classList.toggle("hidden", session.status === "completed" || session.status === "planned" || session.status === "missed");
+  workoutCompletedSummaryEl.classList.toggle("hidden", session.status !== "completed");
+
+  if (session.status === "completed") {
+    workoutCompletedSummaryEl.textContent = `Tempo finale ${formatDuration(session.durationSeconds)} · ${getCompletedExerciseCount(session)}/${session.exercises.length} esercizi completati`;
+    stopTimerLoop();
+  } else if (session.status === "in_progress" || session.status === "paused") {
+    workoutTimerEl.textContent = formatDuration(getSessionElapsedSeconds(session));
+    if (session.status === "in_progress") {
+      startTimerLoop();
+    } else {
+      stopTimerLoop();
+    }
+  } else {
+    stopTimerLoop();
+  }
+
+  if (session.status === "planned") {
+    workoutActionsEl.appendChild(createActionButton("INIZIA ALLENAMENTO", "workout-start-btn", async () => {
+      await handleStartWorkout(session);
+    }));
+  }
+
+  if (session.status === "in_progress" || session.status === "paused") {
+    workoutActionsEl.appendChild(createActionButton(session.status === "in_progress" ? "▌▌ Pausa" : "▶ Riprendi", "workout-control-btn", async () => {
+      await handlePauseWorkout(session);
+    }));
+    workoutActionsEl.appendChild(createActionButton("■ Fine", "workout-stop-btn", async () => {
+      await handleFinishWorkout(session);
+    }));
+  }
+
+  const timeline = document.createElement("div");
+  timeline.className = "exercise-timeline";
+
+  session.exercises.forEach((exercise, index) => {
+    const row = document.createElement("label");
+    row.className = `exercise-line ${exercise.completed ? "exercise-line-done" : ""}`;
+
+    const point = document.createElement("span");
+    point.className = "exercise-line-point";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = exercise.completed;
+    checkbox.disabled = session.status !== "in_progress";
+
+    checkbox.addEventListener("change", async () => {
+      session.exercises[index].completed = checkbox.checked;
+      await saveWorkoutSessions();
+      renderWeekCards();
+      renderCalendar();
+      renderWorkoutDetail();
+    });
+
+    const content = document.createElement("div");
+    content.className = "exercise-line-content";
+
+    const title = document.createElement("div");
+    title.className = "exercise-line-title";
+    title.textContent = exercise.name;
+
+    const meta = document.createElement("div");
+    meta.className = "exercise-line-meta";
+    meta.textContent = `${exercise.trainingType} · ${exercise.category}${exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : ""}`;
+
+    content.appendChild(title);
+    content.appendChild(meta);
+
+    row.appendChild(point);
+    row.appendChild(checkbox);
+    row.appendChild(content);
+    timeline.appendChild(row);
+  });
+
+  workoutExerciseListEl.appendChild(timeline);
+}
+
+function openCalendar() {
+  calendarModalEl.classList.remove("hidden");
+  renderCalendar();
+}
+
+function closeCalendar() {
+  calendarModalEl.classList.add("hidden");
+}
+
+function renderCalendar() {
+  if (!calendarGridEl || !calendarMonthLabelEl) {
+    return;
+  }
+
+  calendarMonthLabelEl.textContent = formatMonthYear(calendarMonthCursor);
+  calendarGridEl.innerHTML = "";
+
+  const firstDay = startOfMonth(calendarMonthCursor);
+  const gridStart = new Date(firstDay);
+  const mondayOffset = (firstDay.getDay() + 6) % 7;
+  gridStart.setDate(firstDay.getDate() - mondayOffset);
+
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    const dateKey = formatIsoDate(date);
+    const session = state.workoutSessions[dateKey];
+    const visualStatus = getSessionVisualStatus(session, dateKey);
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "calendar-cell";
+
+    if (date.getMonth() !== calendarMonthCursor.getMonth()) {
+      cell.classList.add("calendar-cell-muted");
+    }
+
+    if (session && session.exercises.length) {
+      cell.classList.add(`calendar-cell-${visualStatus === "done" ? "done" : visualStatus === "missed" ? "missed" : "planned"}`);
+      cell.addEventListener("click", () => {
+        closeCalendar();
+        openWorkoutDetail(dateKey);
+      });
+    } else {
+      cell.disabled = true;
+    }
+
+    if (dateKey === getTodayKey()) {
+      cell.classList.add("calendar-cell-today");
+    }
+
+    cell.textContent = String(date.getDate());
+    calendarGridEl.appendChild(cell);
   }
 }
 
@@ -645,7 +1134,7 @@ function renderMetricsChart() {
     dateObj: new Date(`${metric.date}T00:00:00`)
   }));
 
-  const values = metrics.flatMap((m) => [m.weight, m.muscleMass]);
+  const values = metrics.flatMap((metric) => [metric.weight, metric.muscleMass]);
   const minY = Math.floor(Math.min(...values) - 1);
   const maxY = Math.ceil(Math.max(...values) + 1);
 
@@ -659,9 +1148,9 @@ function renderMetricsChart() {
     return height - bottomPadding - ratio * (height - topPadding - bottomPadding);
   }
 
-  for (let i = 0; i <= 4; i += 1) {
-    const y = topPadding + (i * (height - topPadding - bottomPadding)) / 4;
-    const value = (maxY - ((maxY - minY) * i) / 4).toFixed(1);
+  for (let index = 0; index <= 4; index += 1) {
+    const y = topPadding + (index * (height - topPadding - bottomPadding)) / 4;
+    const value = (maxY - ((maxY - minY) * index) / 4).toFixed(1);
 
     plotCtx.strokeStyle = "#2a2a2a";
     plotCtx.lineWidth = 1;
@@ -683,10 +1172,6 @@ function renderMetricsChart() {
     axisCtx.fillText(value, axisCanvas.width - 14, y + 3);
   }
 
-  function formatShortDate(dateObj) {
-    return dateObj.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
-  }
-
   const labelStep = Math.max(1, Math.ceil(parsedMetrics.length / 8));
   parsedMetrics.forEach((metric, index) => {
     if (index % labelStep !== 0 && index !== parsedMetrics.length - 1) {
@@ -697,7 +1182,7 @@ function renderMetricsChart() {
     plotCtx.fillStyle = "#707070";
     plotCtx.font = "10px DM Sans";
     plotCtx.textAlign = "center";
-    plotCtx.fillText(formatShortDate(metric.dateObj), x, height - 14);
+    plotCtx.fillText(metric.dateObj.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }), x, height - 14);
   });
 
   plotCtx.textAlign = "left";
@@ -721,19 +1206,14 @@ function renderMetricsChart() {
     plotCtx.lineTo(projectX(parsedMetrics.length - 1), height - bottomPadding);
     plotCtx.lineTo(projectX(0), height - bottomPadding);
     plotCtx.closePath();
-
     plotCtx.fillStyle = gradient;
     plotCtx.fill();
   }
-
-  drawArea("weight", "rgba(232, 255, 71, 0.16)", "rgba(232, 255, 71, 0.02)");
-  drawArea("muscleMass", "rgba(255, 92, 53, 0.14)", "rgba(255, 92, 53, 0.02)");
 
   function drawSeries(key, color) {
     plotCtx.strokeStyle = color;
     plotCtx.lineWidth = 2.5;
     plotCtx.beginPath();
-
     parsedMetrics.forEach((metric, index) => {
       const x = projectX(index);
       const y = projectY(metric[key]);
@@ -743,7 +1223,6 @@ function renderMetricsChart() {
         plotCtx.lineTo(x, y);
       }
     });
-
     plotCtx.stroke();
 
     parsedMetrics.forEach((metric, index) => {
@@ -756,6 +1235,8 @@ function renderMetricsChart() {
     });
   }
 
+  drawArea("weight", "rgba(232, 255, 71, 0.16)", "rgba(232, 255, 71, 0.02)");
+  drawArea("muscleMass", "rgba(255, 92, 53, 0.14)", "rgba(255, 92, 53, 0.02)");
   drawSeries("weight", "#e8ff47");
   drawSeries("muscleMass", "#ff5c35");
 
@@ -769,15 +1250,11 @@ function renderMetricsChart() {
     const latestDate = parsedMetrics[parsedMetrics.length - 1].dateObj;
     const monthStart = new Date(latestDate);
     monthStart.setDate(monthStart.getDate() - 30);
-
     let firstVisibleIndex = parsedMetrics.findIndex((metric) => metric.dateObj >= monthStart);
     if (firstVisibleIndex < 0) {
       firstVisibleIndex = Math.max(0, parsedMetrics.length - 6);
     }
-
-    const targetX = projectX(firstVisibleIndex);
-    const targetScroll = Math.max(0, targetX - leftPadding);
-    metricsChartScrollEl.scrollLeft = targetScroll;
+    metricsChartScrollEl.scrollLeft = Math.max(0, projectX(firstVisibleIndex) - leftPadding);
   }
 }
 
@@ -827,6 +1304,19 @@ function bindEvents() {
     btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
   });
 
+  backToWeekBtn.addEventListener("click", closeWorkoutDetail);
+  openCalendarBtn.addEventListener("click", openCalendar);
+  closeCalendarBtn.addEventListener("click", closeCalendar);
+  calendarModalEl.querySelector(".calendar-backdrop").addEventListener("click", closeCalendar);
+  calendarPrevBtn.addEventListener("click", () => {
+    calendarMonthCursor = new Date(calendarMonthCursor.getFullYear(), calendarMonthCursor.getMonth() - 1, 1);
+    renderCalendar();
+  });
+  calendarNextBtn.addEventListener("click", () => {
+    calendarMonthCursor = new Date(calendarMonthCursor.getFullYear(), calendarMonthCursor.getMonth() + 1, 1);
+    renderCalendar();
+  });
+
   editorDaySelectEl.addEventListener("change", renderEditor);
 
   if (editorTypeFilterEl) {
@@ -842,8 +1332,15 @@ function bindEvents() {
   });
 
   saveWeekBtn.addEventListener("click", async () => {
-    await saveWeekTemplate();
-    updateStats();
+    const didSave = await saveWeekTemplate();
+    if (didSave) {
+      renderWeekCards();
+      renderCalendar();
+      if (workoutDetailDate) {
+        renderWorkoutDetail();
+      }
+      updateStats();
+    }
   });
 
   addMetricBtn.addEventListener("click", () => {
@@ -893,13 +1390,17 @@ function bindEvents() {
 async function init() {
   await loadState();
 
-  openCard = days[(new Date().getDay() + 6) % 7];
+  const didSyncSessions = syncWorkoutSessionsRange();
+  if (didSyncSessions) {
+    await saveWorkoutSessions();
+  }
 
   updateStats();
   renderLibrarySection();
   renderEditorDaySelect();
-  renderWeekCards();
   renderEditor();
+  renderWeekCards();
+  renderCalendar();
   renderPersonal();
   bindEvents();
   setActiveTab("tab-week");
