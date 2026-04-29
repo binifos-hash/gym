@@ -912,6 +912,7 @@ async function handleStartWorkout(session) {
   renderWeekCards();
   renderCalendar();
   renderWorkoutDetail();
+  renderPersonal();
 }
 
 async function handlePauseWorkout(session) {
@@ -928,6 +929,7 @@ async function handlePauseWorkout(session) {
   renderWeekCards();
   renderCalendar();
   renderWorkoutDetail();
+  renderPersonal();
 }
 
 async function handleFinishWorkout(session) {
@@ -939,6 +941,7 @@ async function handleFinishWorkout(session) {
   renderWeekCards();
   renderCalendar();
   renderWorkoutDetail();
+  renderPersonal();
 }
 
 function renderWorkoutDetail() {
@@ -1340,6 +1343,10 @@ function setActiveTab(tabId) {
 
   if (mainHeaderEl) {
     mainHeaderEl.style.display = tabId === "tab-week" ? "block" : "none";
+  }
+
+  if (tabId === "tab-personal") {
+    renderPersonal();
   }
 }
 
