@@ -463,11 +463,24 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   gap: 10px;
   margin-bottom: 12px;
+  align-items: stretch;
 }
 
 .metric-form input {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   height: 42px;
+}
+
+#metricDate {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+#metricDate::-webkit-datetime-edit {
+  padding: 0;
 }
 
 .metric-form .btn-save {
