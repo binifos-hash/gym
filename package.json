@@ -1,0 +1,16 @@
+{
+  "name": "gym",
+  "version": "1.0.0",
+  "description": "Web app per gestione schede palestra",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No tests configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.22.1"
+  }
+}

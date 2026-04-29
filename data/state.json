@@ -1,0 +1,123 @@
+{
+  "exerciseLibrary": {
+    "bench_dumbbell_barbell": [
+      "Panca piana bilanciere",
+      "Panca piana presa stretta",
+      "Panca piana presa larga",
+      "Floor press bilanciere",
+      "Panca piana manubri",
+      "Panca manubri alternata",
+      "Panca manubri presa neutra",
+      "Spinte manubri con fermo",
+      "Pullover manubrio su panca",
+      "Croci manubri su panca piana",
+      "Rematore manubrio su panca",
+      "Rematore bilanciere busto flesso",
+      "Rematore bilanciere presa inversa",
+      "Stacco rumeno bilanciere",
+      "Stacco da terra bilanciere",
+      "Hip thrust bilanciere su panca",
+      "Bulgarian split squat con manubri",
+      "Affondi in camminata con manubri",
+      "Goblet squat con manubrio",
+      "Military press manubri seduto su panca",
+      "Shoulder press bilanciere seduto",
+      "Alzate laterali manubri seduto",
+      "Alzate posteriori manubri su panca",
+      "Curl bilanciere in piedi",
+      "Curl manubri alternati",
+      "Curl concentrato su panca",
+      "French press bilanciere su panca",
+      "Estensioni tricipiti manubrio sopra testa",
+      "Skull crusher bilanciere su panca",
+      "Calf raise con manubri"
+    ],
+    "toorx_msx50": [
+      "Lat machine avanti presa larga",
+      "Lat machine avanti presa stretta",
+      "Lat machine presa inversa",
+      "Lat machine unilaterale",
+      "Pulldown braccia tese al cavo alto",
+      "Pulley basso presa stretta",
+      "Pulley basso presa larga",
+      "Rematore unilaterale cavo basso",
+      "Face pull cavo alto",
+      "Rear delt row al cavo",
+      "Chest press macchina",
+      "Chest press presa stretta",
+      "Chest fly (pec deck)",
+      "Chest fly un braccio",
+      "Croci ai cavi alti",
+      "Croci ai cavi bassi",
+      "Cable crossover centrale",
+      "Shoulder press stazione alta",
+      "Alzate laterali al cavo",
+      "Alzate frontali al cavo",
+      "Upright row al cavo basso",
+      "Bicipiti curl al cavo basso dritto",
+      "Bicipiti curl al cavo basso corda",
+      "Bicipiti curl unilaterale al cavo",
+      "Bicipiti curl al cavo alto",
+      "Tricipiti pushdown barra",
+      "Tricipiti pushdown corda",
+      "Tricipiti estensioni sopra testa al cavo",
+      "Tricipiti kickback al cavo",
+      "Squat al cavo basso",
+      "Affondi al cavo",
+      "Glute kickback al cavo",
+      "Abduzioni anca al cavo",
+      "Adduzioni anca al cavo",
+      "Leg extension con accessorio caviglia",
+      "Leg curl in piedi con cavigliera al cavo",
+      "Hip hinge al cavo basso",
+      "Calf raise al cavo",
+      "Crunch al cavo alto",
+      "Woodchopper alto-basso",
+      "Woodchopper basso-alto",
+      "Pallof press al cavo",
+      "Russian twist al cavo",
+      "Deltoidi posteriori in croce ai cavi",
+      "Shrug al cavo basso"
+    ]
+  },
+  "weekTemplate": {
+    "lunedi": [
+      "Panca piana bilanciere",
+      "Rematore bilanciere busto flesso",
+      "Tricipiti pushdown corda",
+      "Crunch al cavo alto"
+    ],
+    "martedi": [
+      "Squat al cavo basso",
+      "Affondi al cavo",
+      "Stacco rumeno bilanciere",
+      "Calf raise al cavo"
+    ],
+    "mercoledi": [
+      "Lat machine avanti presa larga",
+      "Pulley basso presa stretta",
+      "Curl bilanciere in piedi",
+      "Face pull cavo alto"
+    ],
+    "giovedi": [
+      "Chest press macchina",
+      "Croci manubri su panca piana",
+      "Shoulder press stazione alta",
+      "Alzate laterali al cavo"
+    ],
+    "venerdi": [
+      "Hip thrust bilanciere su panca",
+      "Bulgarian split squat con manubri",
+      "Leg curl in piedi con cavigliera al cavo",
+      "Pallof press al cavo"
+    ],
+    "sabato": [
+      "Military press manubri seduto su panca",
+      "Pulldown braccia tese al cavo alto",
+      "Bicipiti curl al cavo basso corda",
+      "Tricipiti estensioni sopra testa al cavo"
+    ],
+    "domenica": []
+  },
+  "progress": {}
+}
