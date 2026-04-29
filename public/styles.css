@@ -470,11 +470,28 @@ textarea {
 }
 
 #metricsChart {
-  width: 100%;
-  height: 280px;
+  width: auto;
+  min-width: 100%;
+  height: 300px;
   background: #131313;
   border: 1px solid var(--border);
   border-radius: 12px;
+}
+
+.metrics-chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
+.metrics-chart-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.metrics-chart-scroll::-webkit-scrollbar-thumb {
+  background: #2b2b2b;
+  border-radius: 999px;
 }
 
 .diary-form {

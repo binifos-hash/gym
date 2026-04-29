@@ -62,6 +62,7 @@ const metricDateEl = document.getElementById("metricDate");
 const metricWeightEl = document.getElementById("metricWeight");
 const metricMuscleEl = document.getElementById("metricMuscle");
 const metricsChartEl = document.getElementById("metricsChart");
+const metricsChartScrollEl = document.getElementById("metricsChartScroll");
 const diaryForm = document.getElementById("diaryForm");
 const diaryInputEl = document.getElementById("diaryInput");
 const diaryListEl = document.getElementById("diaryList");
@@ -597,29 +598,42 @@ function renderPersonal() {
 function renderMetricsChart() {
   const canvas = metricsChartEl;
   const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#131313";
-  ctx.fillRect(0, 0, width, height);
-
   const metrics = [...state.personal.metrics].sort((a, b) => a.date.localeCompare(b.date));
 
+  const viewportWidth = (metricsChartScrollEl && metricsChartScrollEl.clientWidth) || 860;
+  const spacing = 84;
+  const padding = 44;
+  const height = 300;
+  const width = Math.max(viewportWidth, (Math.max(metrics.length, 2) - 1) * spacing + padding * 2);
+
+  canvas.width = width;
+  canvas.height = height;
+
+  ctx.clearRect(0, 0, width, height);
+  const chartBg = ctx.createLinearGradient(0, 0, 0, height);
+  chartBg.addColorStop(0, "#171717");
+  chartBg.addColorStop(1, "#0f0f0f");
+  ctx.fillStyle = chartBg;
+  ctx.fillRect(0, 0, width, height);
+
   if (metrics.length < 2) {
-    ctx.fillStyle = "#888";
+    ctx.fillStyle = "#8d8d8d";
     ctx.font = "14px DM Sans";
     ctx.fillText("Aggiungi almeno 2 misurazioni per visualizzare il grafico", 24, 40);
     return;
   }
 
-  const padding = 36;
+  const parsedMetrics = metrics.map((metric) => ({
+    ...metric,
+    dateObj: new Date(`${metric.date}T00:00:00`)
+  }));
+
   const values = metrics.flatMap((m) => [m.weight, m.muscleMass]);
-  const minY = Math.min(...values) - 1;
-  const maxY = Math.max(...values) + 1;
+  const minY = Math.floor(Math.min(...values) - 1);
+  const maxY = Math.ceil(Math.max(...values) + 1);
 
   function projectX(index) {
-    const span = metrics.length - 1;
+    const span = parsedMetrics.length - 1;
     return padding + (index * (width - padding * 2)) / span;
   }
 
@@ -636,14 +650,65 @@ function renderMetricsChart() {
     ctx.moveTo(padding, y);
     ctx.lineTo(width - padding, y);
     ctx.stroke();
+
+    const value = (maxY - ((maxY - minY) * i) / 4).toFixed(1);
+    ctx.fillStyle = "#737373";
+    ctx.font = "10px DM Sans";
+    ctx.fillText(value, 8, y + 3);
   }
+
+  function formatShortDate(dateObj) {
+    return dateObj.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+  }
+
+  const labelStep = Math.max(1, Math.ceil(parsedMetrics.length / 8));
+  parsedMetrics.forEach((metric, index) => {
+    if (index % labelStep !== 0 && index !== parsedMetrics.length - 1) {
+      return;
+    }
+
+    const x = projectX(index);
+    ctx.fillStyle = "#707070";
+    ctx.font = "10px DM Sans";
+    ctx.textAlign = "center";
+    ctx.fillText(formatShortDate(metric.dateObj), x, height - 14);
+  });
+
+  ctx.textAlign = "left";
+
+  function drawArea(key, colorStart, colorEnd) {
+    const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+    gradient.addColorStop(0, colorStart);
+    gradient.addColorStop(1, colorEnd);
+
+    ctx.beginPath();
+    parsedMetrics.forEach((metric, index) => {
+      const x = projectX(index);
+      const y = projectY(metric[key]);
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.lineTo(projectX(parsedMetrics.length - 1), height - padding);
+    ctx.lineTo(projectX(0), height - padding);
+    ctx.closePath();
+
+    ctx.fillStyle = gradient;
+    ctx.fill();
+  }
+
+  drawArea("weight", "rgba(232, 255, 71, 0.16)", "rgba(232, 255, 71, 0.02)");
+  drawArea("muscleMass", "rgba(255, 92, 53, 0.14)", "rgba(255, 92, 53, 0.02)");
 
   function drawSeries(key, color) {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
 
-    metrics.forEach((metric, index) => {
+    parsedMetrics.forEach((metric, index) => {
       const x = projectX(index);
       const y = projectY(metric[key]);
       if (index === 0) {
@@ -655,12 +720,12 @@ function renderMetricsChart() {
 
     ctx.stroke();
 
-    metrics.forEach((metric, index) => {
+    parsedMetrics.forEach((metric, index) => {
       const x = projectX(index);
       const y = projectY(metric[key]);
       ctx.beginPath();
       ctx.fillStyle = color;
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
       ctx.fill();
     });
   }
@@ -672,7 +737,22 @@ function renderMetricsChart() {
   ctx.fillStyle = "#e8ff47";
   ctx.fillText("Peso", width - 140, 20);
   ctx.fillStyle = "#ff5c35";
-  ctx.fillText("Massa muscolare", width - 90, 20);
+  ctx.fillText("Massa muscolare", width - 95, 20);
+
+  if (metricsChartScrollEl && parsedMetrics.length) {
+    const latestDate = parsedMetrics[parsedMetrics.length - 1].dateObj;
+    const monthStart = new Date(latestDate);
+    monthStart.setDate(monthStart.getDate() - 30);
+
+    let firstVisibleIndex = parsedMetrics.findIndex((metric) => metric.dateObj >= monthStart);
+    if (firstVisibleIndex < 0) {
+      firstVisibleIndex = Math.max(0, parsedMetrics.length - 6);
+    }
+
+    const targetX = projectX(firstVisibleIndex);
+    const targetScroll = Math.max(0, targetX - padding);
+    metricsChartScrollEl.scrollLeft = targetScroll;
+  }
 }
 
 function renderDiary() {
