@@ -56,6 +56,7 @@ const diaryListEl = document.getElementById("diaryList");
 
 const navButtons = [...document.querySelectorAll(".nav-btn")];
 const tabPanels = [...document.querySelectorAll(".tab-panel")];
+const mainHeaderEl = document.querySelector(".main-header");
 
 function getMonday(date = new Date()) {
   const d = new Date(date);
@@ -158,6 +159,10 @@ async function savePersonalState() {
 }
 
 function updateStats() {
+  if (!weekNumEl || !dayCountEl || !exerciseCountEl || !weekRangeEl) {
+    return;
+  }
+
   const totalExercises = days.reduce((sum, day) => sum + (state.weekTemplate[day] || []).length, 0);
   const { monday, sunday } = getWeekContext();
 
@@ -495,6 +500,10 @@ function setActiveTab(tabId) {
   navButtons.forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tabId);
   });
+
+  if (mainHeaderEl) {
+    mainHeaderEl.style.display = tabId === "tab-week" ? "block" : "none";
+  }
 }
 
 function bindEvents() {
