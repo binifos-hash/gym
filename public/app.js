@@ -28,6 +28,16 @@ const dayLabelsShort = {
   domenica: "DOM"
 };
 
+const trainingTypeOptions = [
+  "Spinta",
+  "Trazione",
+  "Gambe",
+  "Core",
+  "Cardio",
+  "Mobilita",
+  "Full Body"
+];
+
 let state = null;
 let openCard = null;
 
@@ -35,6 +45,8 @@ const weekContainerEl = document.getElementById("weekContainer");
 const freeWeightListEl = document.getElementById("freeWeightList");
 const toorxListEl = document.getElementById("toorxList");
 const editorDaySelectEl = document.getElementById("editorDaySelect");
+const editorTypeFilterEl = document.getElementById("editorTypeFilter");
+const editorSearchEl = document.getElementById("editorSearch");
 const libraryPickerEl = document.getElementById("libraryPicker");
 const dayExerciseListEl = document.getElementById("dayExerciseList");
 const saveWeekBtn = document.getElementById("saveWeekBtn");
@@ -93,6 +105,92 @@ function getWeekNum() {
   return Math.ceil(dayOfYear / 7);
 }
 
+function inferExerciseMeta(name) {
+  const lower = (name || "").toLowerCase();
+
+  const cardioPattern = /(corsa|bike|cyclette|ellittica|cardio|jump|burpee|salto)/;
+  const mobilityPattern = /(mobilita|stretch|allung|yoga)/;
+  const corePattern = /(plank|crunch|addom|sit up|leg raise|hollow|core)/;
+  const legsPattern = /(squat|affondi|leg |polpacci|calf|hip thrust|stacco rumeno)/;
+  const pushPattern = /(panca|chest|spinte|military|shoulder press|dip|tricip|push)/;
+  const pullPattern = /(rematore|lat|pulldown|pulley|trazioni|curl|face pull|stacco|row)/;
+  const bodyweightPattern = /(plank|crunch|sit up|burpee|mountain climber|jumping jack|stretch)/;
+
+  if (cardioPattern.test(lower)) {
+    return { category: "Condizionamento", trainingType: "Cardio", supportsWeight: false };
+  }
+
+  if (mobilityPattern.test(lower)) {
+    return { category: "Recupero", trainingType: "Mobilita", supportsWeight: false };
+  }
+
+  if (corePattern.test(lower)) {
+    return { category: "Forza", trainingType: "Core", supportsWeight: !bodyweightPattern.test(lower) };
+  }
+
+  if (legsPattern.test(lower)) {
+    return { category: "Forza", trainingType: "Gambe", supportsWeight: true };
+  }
+
+  if (pushPattern.test(lower)) {
+    return { category: "Forza", trainingType: "Spinta", supportsWeight: true };
+  }
+
+  if (pullPattern.test(lower)) {
+    return { category: "Forza", trainingType: "Trazione", supportsWeight: true };
+  }
+
+  return { category: "Forza", trainingType: "Full Body", supportsWeight: !bodyweightPattern.test(lower) };
+}
+
+function normalizeExerciseEntry(entry) {
+  const name = typeof entry === "string" ? entry : (entry && entry.name) || "";
+  if (!name) {
+    return null;
+  }
+
+  const inferred = inferExerciseMeta(name);
+  const isObj = entry && typeof entry === "object";
+  const supportsWeight = isObj && typeof entry.supportsWeight === "boolean"
+    ? entry.supportsWeight
+    : inferred.supportsWeight;
+
+  let weight = null;
+  if (supportsWeight && isObj && entry.weight !== "" && entry.weight !== undefined && entry.weight !== null) {
+    const parsedWeight = Number(entry.weight);
+    weight = Number.isNaN(parsedWeight) ? null : parsedWeight;
+  }
+
+  return {
+    name,
+    category: (isObj && entry.category) || inferred.category,
+    trainingType: (isObj && entry.trainingType) || inferred.trainingType,
+    supportsWeight,
+    weight
+  };
+}
+
+function normalizeWeekTemplate() {
+  if (!state.weekTemplate || typeof state.weekTemplate !== "object") {
+    state.weekTemplate = {};
+  }
+
+  days.forEach((day) => {
+    const entries = Array.isArray(state.weekTemplate[day]) ? state.weekTemplate[day] : [];
+    state.weekTemplate[day] = entries
+      .map(normalizeExerciseEntry)
+      .filter(Boolean);
+  });
+}
+
+function getExerciseProgressKey(exercise) {
+  const base = `${exercise.name}|${exercise.trainingType}`;
+  if (exercise.supportsWeight && typeof exercise.weight === "number") {
+    return `${base}|${exercise.weight}`;
+  }
+  return base;
+}
+
 function ensurePersonalDefaults() {
   if (!state.personal || typeof state.personal !== "object") {
     state.personal = {};
@@ -115,6 +213,7 @@ async function loadState() {
   const res = await fetch("/api/state");
   state = await res.json();
   ensurePersonalDefaults();
+  normalizeWeekTemplate();
 }
 
 async function saveWeekTemplate() {
@@ -177,14 +276,16 @@ function renderLibrarySection() {
   toorxListEl.innerHTML = "";
 
   state.exerciseLibrary.bench_dumbbell_barbell.forEach((exercise) => {
+    const meta = inferExerciseMeta(exercise);
     const li = document.createElement("li");
-    li.textContent = exercise;
+    li.innerHTML = `<strong>${exercise}</strong><span>${meta.trainingType}${meta.supportsWeight ? " · con carico" : " · corpo libero"}</span>`;
     freeWeightListEl.appendChild(li);
   });
 
   state.exerciseLibrary.toorx_msx50.forEach((exercise) => {
+    const meta = inferExerciseMeta(exercise);
     const li = document.createElement("li");
-    li.textContent = exercise;
+    li.innerHTML = `<strong>${exercise}</strong><span>${meta.trainingType}${meta.supportsWeight ? " · con carico" : " · corpo libero"}</span>`;
     toorxListEl.appendChild(li);
   });
 }
@@ -197,7 +298,8 @@ function renderWeekCards() {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
 
-    const dayExercises = state.weekTemplate[day] || [];
+    const dayExercises = (state.weekTemplate[day] || []).map(normalizeExerciseEntry).filter(Boolean);
+    state.weekTemplate[day] = dayExercises;
     const dayProgress = (state.progress[weekKey] && state.progress[weekKey][day]) || {};
     const isOpen = openCard === day;
 
@@ -259,7 +361,8 @@ function renderWeekCards() {
     exercises.className = "exercises";
 
     dayExercises.forEach((exercise) => {
-      const done = !!dayProgress[exercise];
+      const progressKey = getExerciseProgressKey(exercise);
+      const done = !!dayProgress[progressKey] || !!dayProgress[exercise.name];
 
       const ex = document.createElement("div");
       ex.className = "ex";
@@ -271,11 +374,22 @@ function renderWeekCards() {
 
       const exName = document.createElement("div");
       exName.className = "ex-name";
-      exName.textContent = exercise;
+      exName.textContent = exercise.name;
+
+      const exMeta = document.createElement("div");
+      exMeta.className = "ex-meta";
+      exMeta.textContent = `${exercise.trainingType} · ${exercise.category}${exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : ""}`;
+
+      const exInfo = document.createElement("div");
+      exInfo.className = "ex-info";
+      exInfo.appendChild(exName);
+      exInfo.appendChild(exMeta);
 
       const sets = document.createElement("div");
       sets.className = "ex-sets";
-      sets.innerHTML = '<div class="sets-main">3x10</div><div class="sets-label">serie x rip.</div>';
+      sets.innerHTML = exercise.supportsWeight && typeof exercise.weight === "number"
+        ? `<div class="sets-main">${exercise.weight} kg</div><div class="sets-label">carico</div>`
+        : '<div class="sets-main">3x10</div><div class="sets-label">serie x rip.</div>';
 
       checkbox.addEventListener("change", async () => {
         if (!state.progress[weekKey]) {
@@ -285,12 +399,12 @@ function renderWeekCards() {
           state.progress[weekKey][day] = {};
         }
 
-        state.progress[weekKey][day][exercise] = checkbox.checked;
-        await saveExerciseProgress(day, exercise, checkbox.checked);
+        state.progress[weekKey][day][progressKey] = checkbox.checked;
+        await saveExerciseProgress(day, progressKey, checkbox.checked);
       });
 
       ex.appendChild(checkbox);
-      ex.appendChild(exName);
+      ex.appendChild(exInfo);
       ex.appendChild(sets);
       exercises.appendChild(ex);
     });
@@ -320,62 +434,158 @@ function renderEditorDaySelect() {
 }
 
 function getAllExercises() {
-  return [
-    ...state.exerciseLibrary.bench_dumbbell_barbell,
-    ...state.exerciseLibrary.toorx_msx50
-  ];
+  const freeWeights = state.exerciseLibrary.bench_dumbbell_barbell.map((name) => ({
+    ...normalizeExerciseEntry(name),
+    source: "Pesi liberi"
+  }));
+
+  const machine = state.exerciseLibrary.toorx_msx50.map((name) => ({
+    ...normalizeExerciseEntry(name),
+    source: "Toorx MSX-50"
+  }));
+
+  return [...freeWeights, ...machine];
 }
 
 function renderEditor() {
   const currentDay = editorDaySelectEl.value || days[0];
-  const daySet = new Set(state.weekTemplate[currentDay] || []);
+  const plannedExercises = (state.weekTemplate[currentDay] || []).map(normalizeExerciseEntry).filter(Boolean);
+  state.weekTemplate[currentDay] = plannedExercises;
+  const daySet = new Set(plannedExercises.map((exercise) => exercise.name));
   const allExercises = getAllExercises();
+  const selectedType = editorTypeFilterEl ? editorTypeFilterEl.value : "all";
+  const searchText = editorSearchEl ? editorSearchEl.value.trim().toLowerCase() : "";
+
+  const filteredExercises = allExercises.filter((exercise) => {
+    const matchesType = selectedType === "all" || exercise.trainingType === selectedType;
+    const matchesSearch = !searchText || exercise.name.toLowerCase().includes(searchText);
+    return matchesType && matchesSearch;
+  });
 
   libraryPickerEl.innerHTML = "";
-  allExercises.forEach((exercise) => {
+  filteredExercises.forEach((exercise) => {
     const item = document.createElement("div");
     item.className = "picker-item";
 
-    const span = document.createElement("span");
-    span.textContent = exercise;
+    const info = document.createElement("div");
+    info.className = "picker-info";
+
+    const title = document.createElement("span");
+    title.className = "picker-title";
+    title.textContent = exercise.name;
+
+    const meta = document.createElement("span");
+    meta.className = "picker-meta";
+    meta.textContent = `${exercise.trainingType} · ${exercise.source}${exercise.supportsWeight ? " · con carico" : " · corpo libero"}`;
+
+    info.appendChild(title);
+    info.appendChild(meta);
 
     const addBtn = document.createElement("button");
-    addBtn.textContent = daySet.has(exercise) ? "Aggiunto" : "+ Aggiungi";
-    addBtn.disabled = daySet.has(exercise);
+    addBtn.textContent = daySet.has(exercise.name) ? "Aggiunto" : "+ Aggiungi";
+    addBtn.disabled = daySet.has(exercise.name);
 
     addBtn.addEventListener("click", () => {
-      state.weekTemplate[currentDay].push(exercise);
+      state.weekTemplate[currentDay].push({
+        name: exercise.name,
+        category: exercise.category,
+        trainingType: exercise.trainingType,
+        supportsWeight: exercise.supportsWeight,
+        weight: null
+      });
       renderEditor();
       renderWeekCards();
       updateStats();
     });
 
-    item.appendChild(span);
+    item.appendChild(info);
     item.appendChild(addBtn);
     libraryPickerEl.appendChild(item);
   });
 
+  if (!filteredExercises.length) {
+    libraryPickerEl.innerHTML = '<div class="picker-empty">Nessun esercizio trovato con questi filtri.</div>';
+  }
+
   dayExerciseListEl.innerHTML = "";
-  (state.weekTemplate[currentDay] || []).forEach((exercise) => {
+  plannedExercises.forEach((exercise, exerciseIndex) => {
     const li = document.createElement("li");
-    const span = document.createElement("span");
-    span.textContent = exercise;
+
+    const rowTop = document.createElement("div");
+    rowTop.className = "day-ex-top";
+
+    const name = document.createElement("span");
+    name.className = "day-ex-name";
+    name.textContent = exercise.name;
+
+    const meta = document.createElement("span");
+    meta.className = "day-ex-meta";
+    meta.textContent = `${exercise.category} · ${exercise.supportsWeight ? "con carico" : "corpo libero"}`;
+
+    rowTop.appendChild(name);
+    rowTop.appendChild(meta);
+
+    const controls = document.createElement("div");
+    controls.className = "day-ex-controls";
+
+    const typeSelect = document.createElement("select");
+    trainingTypeOptions.forEach((type) => {
+      const option = document.createElement("option");
+      option.value = type;
+      option.textContent = type;
+      option.selected = exercise.trainingType === type;
+      typeSelect.appendChild(option);
+    });
+
+    typeSelect.addEventListener("change", () => {
+      exercise.trainingType = typeSelect.value;
+      renderWeekCards();
+    });
+
+    controls.appendChild(typeSelect);
+
+    if (exercise.supportsWeight) {
+      const weightInput = document.createElement("input");
+      weightInput.type = "number";
+      weightInput.step = "0.5";
+      weightInput.min = "0";
+      weightInput.placeholder = "Peso kg";
+      weightInput.value = typeof exercise.weight === "number" ? String(exercise.weight) : "";
+
+      weightInput.addEventListener("input", () => {
+        if (weightInput.value === "") {
+          exercise.weight = null;
+        } else {
+          const value = Number(weightInput.value);
+          exercise.weight = Number.isNaN(value) ? null : value;
+        }
+        renderWeekCards();
+      });
+
+      controls.appendChild(weightInput);
+    }
 
     const removeBtn = document.createElement("button");
     removeBtn.className = "remove-btn";
     removeBtn.textContent = "Rimuovi";
 
     removeBtn.addEventListener("click", () => {
-      state.weekTemplate[currentDay] = state.weekTemplate[currentDay].filter((item) => item !== exercise);
+      state.weekTemplate[currentDay] = state.weekTemplate[currentDay].filter((_, index) => index !== exerciseIndex);
       renderEditor();
       renderWeekCards();
       updateStats();
     });
 
-    li.appendChild(span);
-    li.appendChild(removeBtn);
+    controls.appendChild(removeBtn);
+
+    li.appendChild(rowTop);
+    li.appendChild(controls);
     dayExerciseListEl.appendChild(li);
   });
+
+  if (!plannedExercises.length) {
+    dayExerciseListEl.innerHTML = '<li class="day-ex-empty">Nessun esercizio nel giorno selezionato.</li>';
+  }
 }
 
 function renderPersonal() {
@@ -512,6 +722,14 @@ function bindEvents() {
   });
 
   editorDaySelectEl.addEventListener("change", renderEditor);
+
+  if (editorTypeFilterEl) {
+    editorTypeFilterEl.addEventListener("change", renderEditor);
+  }
+
+  if (editorSearchEl) {
+    editorSearchEl.addEventListener("input", renderEditor);
+  }
 
   saveWeekBtn.addEventListener("click", async () => {
     await saveWeekTemplate();

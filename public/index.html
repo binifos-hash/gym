@@ -15,9 +15,20 @@
   <main class="screen-wrap">
     <section id="tab-edit" class="tab-panel">
       <div class="panel-card">
-        <h2>Modifica Scheda Settimanale</h2>
+        <h2>Workout Builder</h2>
         <div class="editor-controls">
           <select id="editorDaySelect"></select>
+          <select id="editorTypeFilter">
+            <option value="all">Tutti i tipi</option>
+            <option value="Spinta">Spinta</option>
+            <option value="Trazione">Trazione</option>
+            <option value="Gambe">Gambe</option>
+            <option value="Core">Core</option>
+            <option value="Cardio">Cardio</option>
+            <option value="Mobilita">Mobilita</option>
+            <option value="Full Body">Full Body</option>
+          </select>
+          <input id="editorSearch" type="text" placeholder="Cerca esercizio...">
           <button id="saveWeekBtn" class="btn-save">Salva settimana</button>
         </div>
         <div class="editor-layout">
