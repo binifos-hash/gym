@@ -1,68 +1,77 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Telefoo Gym Planner</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telefoo Gym Planner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
-    <main class="container">
-      <header class="hero">
-        <p class="brand">TELEFOO TRAINING SYSTEM</p>
-        <h1>Gestione Schede Palestra</h1>
-        <p id="weekRange" class="week-range"></p>
-      </header>
+<header>
+  <div class="header-left">
+    <h1>Telefoo<br>Planner</h1>
+    <p>Gestisci le tue schede di allenamento · Settimanale</p>
+  </div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val" id="weekNum">1</div>
+      <div class="stat-label">Settimana</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="dayCount">7</div>
+      <div class="stat-label">Giorni</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="exerciseCount">0</div>
+      <div class="stat-label">Esercizi</div>
+    </div>
+  </div>
+</header>
 
-      <section class="panel">
-        <h2>Calendario Settimana Corrente</h2>
-        <div id="dayButtons" class="day-grid"></div>
-        <div id="dailyExercises" class="exercise-list"></div>
-      </section>
+<div class="attrezzatura">
+  <div class="tag"><span>⚙</span> Toorx MSX-50</div>
+  <div class="tag"><span>⚙</span> Panca piana</div>
+  <div class="tag"><span>⚙</span> Manubri · Bilanciere</div>
+</div>
 
-      <section class="panel">
-        <h2>Modifica Settimana</h2>
-        <p class="hint">Scegli un giorno, aggiungi/rimuovi esercizi dalla libreria e salva su JSON.</p>
-        <div class="editor-top">
-          <select id="editorDaySelect"></select>
-          <button id="saveWeekBtn" class="btn">Salva settimana</button>
-        </div>
-        <div class="editor-columns">
-          <div>
-            <h3>Libreria completa</h3>
-            <div id="libraryPicker" class="library-picker"></div>
-          </div>
-          <div>
-            <h3>Esercizi del giorno</h3>
-            <ul id="dayExerciseList" class="day-ex-list"></ul>
-          </div>
-        </div>
-      </section>
+<div class="week" id="weekContainer"></div>
 
-      <section class="panel">
-        <h2>Libreria Esercizi</h2>
-        <div class="library-columns">
-          <article>
-            <h3>Panca piana, manubri, bilanciere</h3>
-            <ul id="freeWeightList"></ul>
-          </article>
-          <article>
-            <h3>Toorx MSX50</h3>
-            <ul id="toorxList"></ul>
-          </article>
-        </div>
-      </section>
-    </main>
+<div class="editor-panel">
+  <h2>Modifica Scheda Settimanale</h2>
+  <div class="editor-controls">
+    <select id="editorDaySelect"></select>
+    <button id="saveWeekBtn" class="btn-save">Salva settimana</button>
+  </div>
+  <div class="editor-layout">
+    <div class="editor-col">
+      <h3>Libreria completa</h3>
+      <div id="libraryPicker" class="library-picker"></div>
+    </div>
+    <div class="editor-col">
+      <h3>Esercizi del giorno</h3>
+      <ul id="dayExerciseList" class="day-ex-list"></ul>
+    </div>
+  </div>
+</div>
 
-    <script src="app.js"></script>
-  </body>
+<div class="library-panel">
+  <h2>Libreria Esercizi</h2>
+  <div class="library-grid">
+    <article>
+      <h3>Panca piana · Manubri · Bilanciere</h3>
+      <ul id="freeWeightList"></ul>
+    </article>
+    <article>
+      <h3>Toorx MSX-50</h3>
+      <ul id="toorxList"></ul>
+    </article>
+  </div>
+</div>
+
+<footer>Telefoo Training System · Personalizza il tuo allenamento</footer>
+
+<script src="app.js"></script>
+</body>
 </html>
