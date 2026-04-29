@@ -80,6 +80,7 @@ const calendarNextBtn = document.getElementById("calendarNextBtn");
 const closeCalendarBtn = document.getElementById("closeCalendarBtn");
 
 const profileNameEl = document.getElementById("profileName");
+const profileStreakValueEl = document.getElementById("profileStreakValue");
 const addMetricBtn = document.getElementById("addMetricBtn");
 const metricForm = document.getElementById("metricForm");
 const metricDateEl = document.getElementById("metricDate");
@@ -1088,8 +1089,42 @@ function renderCalendar() {
   }
 }
 
+function getPersonalWorkoutStreak() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = formatIsoDate(today);
+
+  let streak = 0;
+  for (let offset = 0; offset <= WORKOUT_SYNC_PAST_DAYS + 365; offset += 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - offset);
+    const dateKey = formatIsoDate(date);
+    const session = state.workoutSessions[dateKey];
+
+    if (!session || !session.exercises || !session.exercises.length) {
+      continue;
+    }
+
+    if (session.status === "completed") {
+      streak += 1;
+      continue;
+    }
+
+    if (dateKey === todayKey && (session.status === "planned" || session.status === "in_progress" || session.status === "paused")) {
+      continue;
+    }
+
+    break;
+  }
+
+  return streak;
+}
+
 function renderPersonal() {
   profileNameEl.textContent = state.personal.profileName;
+  if (profileStreakValueEl) {
+    profileStreakValueEl.textContent = String(getPersonalWorkoutStreak());
+  }
   renderMetricsChart();
   renderDiary();
 }
