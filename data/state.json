@@ -119,5 +119,21 @@
     ],
     "domenica": []
   },
-  "progress": {}
+  "progress": {},
+  "personal": {
+    "profileName": "Paolo Bini",
+    "metrics": [
+      {
+        "date": "2026-04-29",
+        "weight": 60.2,
+        "muscleMass": 28.4
+      }
+    ],
+    "diary": [
+      {
+        "date": "2026-04-29",
+        "text": "Allenamento ottimo, energia alta"
+      }
+    ]
+  }
 }

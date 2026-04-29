@@ -36,6 +36,22 @@ function isValidWeekTemplate(weekTemplate) {
   return validDays.every((day) => Array.isArray(weekTemplate[day]));
 }
 
+function isValidPersonal(personal) {
+  if (!personal || typeof personal !== "object") {
+    return false;
+  }
+
+  if (typeof personal.profileName !== "string") {
+    return false;
+  }
+
+  if (!Array.isArray(personal.metrics) || !Array.isArray(personal.diary)) {
+    return false;
+  }
+
+  return true;
+}
+
 app.get("/api/state", (req, res) => {
   try {
     const state = readState();
@@ -87,6 +103,24 @@ app.put("/api/progress", (req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio progress" });
+  }
+});
+
+app.put("/api/personal", (req, res) => {
+  try {
+    const { personal } = req.body;
+
+    if (!isValidPersonal(personal)) {
+      return res.status(400).json({ error: "Payload personal non valido" });
+    }
+
+    const state = readState();
+    state.personal = personal;
+    writeState(state);
+
+    return res.json({ ok: true, personal: state.personal });
+  } catch (error) {
+    return res.status(500).json({ error: "Errore salvataggio sezione personale" });
   }
 });
 
