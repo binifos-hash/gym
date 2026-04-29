@@ -61,6 +61,7 @@ const metricForm = document.getElementById("metricForm");
 const metricDateEl = document.getElementById("metricDate");
 const metricWeightEl = document.getElementById("metricWeight");
 const metricMuscleEl = document.getElementById("metricMuscle");
+const metricsYAxisEl = document.getElementById("metricsYAxis");
 const metricsChartEl = document.getElementById("metricsChart");
 const metricsChartScrollEl = document.getElementById("metricsChartScroll");
 const diaryForm = document.getElementById("diaryForm");
@@ -596,30 +597,46 @@ function renderPersonal() {
 }
 
 function renderMetricsChart() {
-  const canvas = metricsChartEl;
-  const ctx = canvas.getContext("2d");
+  if (!metricsChartEl || !metricsYAxisEl) {
+    return;
+  }
+
+  const plotCanvas = metricsChartEl;
+  const axisCanvas = metricsYAxisEl;
+  const plotCtx = plotCanvas.getContext("2d");
+  const axisCtx = axisCanvas.getContext("2d");
   const metrics = [...state.personal.metrics].sort((a, b) => a.date.localeCompare(b.date));
 
   const viewportWidth = (metricsChartScrollEl && metricsChartScrollEl.clientWidth) || 860;
   const spacing = 84;
-  const padding = 44;
   const height = 300;
-  const width = Math.max(viewportWidth, (Math.max(metrics.length, 2) - 1) * spacing + padding * 2);
+  const topPadding = 28;
+  const bottomPadding = 38;
+  const leftPadding = 24;
+  const rightPadding = 24;
+  const width = Math.max(viewportWidth, (Math.max(metrics.length, 2) - 1) * spacing + leftPadding + rightPadding);
 
-  canvas.width = width;
-  canvas.height = height;
+  plotCanvas.width = width;
+  plotCanvas.height = height;
+  axisCanvas.width = 56;
+  axisCanvas.height = height;
 
-  ctx.clearRect(0, 0, width, height);
-  const chartBg = ctx.createLinearGradient(0, 0, 0, height);
-  chartBg.addColorStop(0, "#171717");
-  chartBg.addColorStop(1, "#0f0f0f");
-  ctx.fillStyle = chartBg;
-  ctx.fillRect(0, 0, width, height);
+  const plotBg = plotCtx.createLinearGradient(0, 0, 0, height);
+  plotBg.addColorStop(0, "#171717");
+  plotBg.addColorStop(1, "#0f0f0f");
+  plotCtx.fillStyle = plotBg;
+  plotCtx.fillRect(0, 0, width, height);
+
+  const axisBg = axisCtx.createLinearGradient(0, 0, 0, height);
+  axisBg.addColorStop(0, "#171717");
+  axisBg.addColorStop(1, "#0f0f0f");
+  axisCtx.fillStyle = axisBg;
+  axisCtx.fillRect(0, 0, axisCanvas.width, height);
 
   if (metrics.length < 2) {
-    ctx.fillStyle = "#8d8d8d";
-    ctx.font = "14px DM Sans";
-    ctx.fillText("Aggiungi almeno 2 misurazioni per visualizzare il grafico", 24, 40);
+    plotCtx.fillStyle = "#8d8d8d";
+    plotCtx.font = "14px DM Sans";
+    plotCtx.fillText("Aggiungi almeno 2 misurazioni per visualizzare il grafico", 24, 40);
     return;
   }
 
@@ -634,27 +651,36 @@ function renderMetricsChart() {
 
   function projectX(index) {
     const span = parsedMetrics.length - 1;
-    return padding + (index * (width - padding * 2)) / span;
+    return leftPadding + (index * (width - leftPadding - rightPadding)) / span;
   }
 
   function projectY(value) {
     const ratio = (value - minY) / (maxY - minY || 1);
-    return height - padding - ratio * (height - padding * 2);
+    return height - bottomPadding - ratio * (height - topPadding - bottomPadding);
   }
 
-  ctx.strokeStyle = "#2a2a2a";
-  ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i += 1) {
-    const y = padding + (i * (height - padding * 2)) / 4;
-    ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(width - padding, y);
-    ctx.stroke();
-
+    const y = topPadding + (i * (height - topPadding - bottomPadding)) / 4;
     const value = (maxY - ((maxY - minY) * i) / 4).toFixed(1);
-    ctx.fillStyle = "#737373";
-    ctx.font = "10px DM Sans";
-    ctx.fillText(value, 8, y + 3);
+
+    plotCtx.strokeStyle = "#2a2a2a";
+    plotCtx.lineWidth = 1;
+    plotCtx.beginPath();
+    plotCtx.moveTo(leftPadding, y);
+    plotCtx.lineTo(width - rightPadding, y);
+    plotCtx.stroke();
+
+    axisCtx.strokeStyle = "#3a3a3a";
+    axisCtx.lineWidth = 1;
+    axisCtx.beginPath();
+    axisCtx.moveTo(axisCanvas.width - 12, y);
+    axisCtx.lineTo(axisCanvas.width - 2, y);
+    axisCtx.stroke();
+
+    axisCtx.fillStyle = "#737373";
+    axisCtx.font = "10px DM Sans";
+    axisCtx.textAlign = "right";
+    axisCtx.fillText(value, axisCanvas.width - 14, y + 3);
   }
 
   function formatShortDate(dateObj) {
@@ -668,76 +694,76 @@ function renderMetricsChart() {
     }
 
     const x = projectX(index);
-    ctx.fillStyle = "#707070";
-    ctx.font = "10px DM Sans";
-    ctx.textAlign = "center";
-    ctx.fillText(formatShortDate(metric.dateObj), x, height - 14);
+    plotCtx.fillStyle = "#707070";
+    plotCtx.font = "10px DM Sans";
+    plotCtx.textAlign = "center";
+    plotCtx.fillText(formatShortDate(metric.dateObj), x, height - 14);
   });
 
-  ctx.textAlign = "left";
+  plotCtx.textAlign = "left";
 
   function drawArea(key, colorStart, colorEnd) {
-    const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+    const gradient = plotCtx.createLinearGradient(0, topPadding, 0, height - bottomPadding);
     gradient.addColorStop(0, colorStart);
     gradient.addColorStop(1, colorEnd);
 
-    ctx.beginPath();
+    plotCtx.beginPath();
     parsedMetrics.forEach((metric, index) => {
       const x = projectX(index);
       const y = projectY(metric[key]);
       if (index === 0) {
-        ctx.moveTo(x, y);
+        plotCtx.moveTo(x, y);
       } else {
-        ctx.lineTo(x, y);
+        plotCtx.lineTo(x, y);
       }
     });
 
-    ctx.lineTo(projectX(parsedMetrics.length - 1), height - padding);
-    ctx.lineTo(projectX(0), height - padding);
-    ctx.closePath();
+    plotCtx.lineTo(projectX(parsedMetrics.length - 1), height - bottomPadding);
+    plotCtx.lineTo(projectX(0), height - bottomPadding);
+    plotCtx.closePath();
 
-    ctx.fillStyle = gradient;
-    ctx.fill();
+    plotCtx.fillStyle = gradient;
+    plotCtx.fill();
   }
 
   drawArea("weight", "rgba(232, 255, 71, 0.16)", "rgba(232, 255, 71, 0.02)");
   drawArea("muscleMass", "rgba(255, 92, 53, 0.14)", "rgba(255, 92, 53, 0.02)");
 
   function drawSeries(key, color) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
+    plotCtx.strokeStyle = color;
+    plotCtx.lineWidth = 2.5;
+    plotCtx.beginPath();
 
     parsedMetrics.forEach((metric, index) => {
       const x = projectX(index);
       const y = projectY(metric[key]);
       if (index === 0) {
-        ctx.moveTo(x, y);
+        plotCtx.moveTo(x, y);
       } else {
-        ctx.lineTo(x, y);
+        plotCtx.lineTo(x, y);
       }
     });
 
-    ctx.stroke();
+    plotCtx.stroke();
 
     parsedMetrics.forEach((metric, index) => {
       const x = projectX(index);
       const y = projectY(metric[key]);
-      ctx.beginPath();
-      ctx.fillStyle = color;
-      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
-      ctx.fill();
+      plotCtx.beginPath();
+      plotCtx.fillStyle = color;
+      plotCtx.arc(x, y, 3.5, 0, Math.PI * 2);
+      plotCtx.fill();
     });
   }
 
   drawSeries("weight", "#e8ff47");
   drawSeries("muscleMass", "#ff5c35");
 
-  ctx.font = "11px DM Sans";
-  ctx.fillStyle = "#e8ff47";
-  ctx.fillText("Peso", width - 140, 20);
-  ctx.fillStyle = "#ff5c35";
-  ctx.fillText("Massa muscolare", width - 95, 20);
+  plotCtx.font = "11px DM Sans";
+  plotCtx.fillStyle = "#e8ff47";
+  plotCtx.fillText("Peso", width - 140, 20);
+  plotCtx.fillStyle = "#ff5c35";
+  plotCtx.fillText("Massa muscolare", width - 95, 20);
 
   if (metricsChartScrollEl && parsedMetrics.length) {
     const latestDate = parsedMetrics[parsedMetrics.length - 1].dateObj;
@@ -750,7 +776,7 @@ function renderMetricsChart() {
     }
 
     const targetX = projectX(firstVisibleIndex);
-    const targetScroll = Math.max(0, targetX - padding);
+    const targetScroll = Math.max(0, targetX - leftPadding);
     metricsChartScrollEl.scrollLeft = targetScroll;
   }
 }
@@ -810,6 +836,10 @@ function bindEvents() {
   if (editorSearchEl) {
     editorSearchEl.addEventListener("input", renderEditor);
   }
+
+  window.addEventListener("resize", () => {
+    renderMetricsChart();
+  });
 
   saveWeekBtn.addEventListener("click", async () => {
     await saveWeekTemplate();

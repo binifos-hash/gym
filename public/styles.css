@@ -460,13 +460,38 @@ textarea {
 
 .metric-form {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   gap: 10px;
   margin-bottom: 12px;
 }
 
+.metric-form input {
+  min-width: 0;
+  height: 42px;
+}
+
+.metric-form .btn-save {
+  height: 42px;
+}
+
 .hidden {
   display: none;
+}
+
+.metrics-chart-shell {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+#metricsYAxis {
+  width: 56px;
+  height: 300px;
+  background: #131313;
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
 
 #metricsChart {
