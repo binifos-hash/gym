@@ -464,6 +464,23 @@ function getSessionStatusLabel(session, dateKey) {
   return "Riposo";
 }
 
+function getSessionCategorySummary(session) {
+  if (!session || !session.exercises.length) {
+    return "Riposo";
+  }
+
+  const uniqueTypes = [...new Set(session.exercises.map((exercise) => exercise.trainingType).filter(Boolean))];
+  if (!uniqueTypes.length) {
+    return "Workout";
+  }
+
+  if (uniqueTypes.length <= 2) {
+    return uniqueTypes.join(" · ");
+  }
+
+  return `${uniqueTypes.slice(0, 2).join(" · ")} +${uniqueTypes.length - 2}`;
+}
+
 function ensurePersonalDefaults() {
   if (!state.personal || typeof state.personal !== "object") {
     state.personal = {};
@@ -600,25 +617,17 @@ function renderWeekCards() {
 
     const dayNum = document.createElement("div");
     dayNum.className = "day-num";
-    dayNum.textContent = dayLabelsShort[day];
+    dayNum.textContent = formatDate(date);
 
     const dayInfo = document.createElement("div");
 
     const title = document.createElement("div");
     title.className = "day-title";
-    title.textContent = `${dayLabels[day]} ${formatDate(date)}`;
+    title.textContent = dayLabels[day];
 
     const focus = document.createElement("div");
     focus.className = "day-focus";
-    if (isRest) {
-      focus.textContent = "Riposo";
-    } else if (visualStatus === "done") {
-      focus.textContent = `${getCompletedExerciseCount(session)}/${session.exercises.length} esercizi completati`;
-    } else if (visualStatus === "missed") {
-      focus.textContent = `${session.exercises.length} esercizi non completati`;
-    } else {
-      focus.textContent = `${session.exercises.length} esercizi`;
-    }
+    focus.textContent = getSessionCategorySummary(session);
 
     dayInfo.appendChild(title);
     dayInfo.appendChild(focus);
