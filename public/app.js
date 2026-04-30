@@ -45,6 +45,8 @@ let state = null;
 let workoutDetailDate = null;
 let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
+let restTimerIntervalId = null;
+let restTimerRemaining = 0;
 
 const weekContainerEl = document.getElementById("weekContainer");
 const weekOverviewEl = document.getElementById("weekOverview");
@@ -239,7 +241,8 @@ function normalizeExerciseEntry(entry) {
     category: (isObj && entry.category) || inferred.category,
     trainingType: (isObj && entry.trainingType) || inferred.trainingType,
     supportsWeight,
-    weight
+    weight,
+    restSeconds: (isObj && typeof entry.restSeconds === "number") ? entry.restSeconds : 60
   };
 }
 
@@ -823,6 +826,22 @@ function renderEditor() {
       controls.appendChild(weightInput);
     }
 
+    const restInput = document.createElement("input");
+    restInput.type = "number";
+    restInput.step = "5";
+    restInput.min = "0";
+    restInput.placeholder = "Pausa sec";
+    restInput.className = "rest-input";
+    restInput.value = typeof exercise.restSeconds === "number" ? String(exercise.restSeconds) : "60";
+
+    restInput.addEventListener("input", () => {
+      const value = Number(restInput.value);
+      exercise.restSeconds = Number.isNaN(value) || value < 0 ? 60 : value;
+      syncWorkoutSessionsRange();
+    });
+
+    controls.appendChild(restInput);
+
     const removeBtn = document.createElement("button");
     removeBtn.className = "remove-btn";
     removeBtn.textContent = "Rimuovi";
@@ -1048,6 +1067,9 @@ function renderWorkoutDetail() {
         renderWeekCards();
         renderCalendar();
         renderWorkoutDetail();
+        if (checkbox.checked) {
+          showRestTimer(exercise.restSeconds || 60);
+        }
       });
     } else {
       checkbox = document.createElement("span");
@@ -1476,6 +1498,42 @@ function bindEvents() {
     diaryInputEl.value = "";
     renderDiary();
   });
+}
+
+// ── Rest Timer ────────────────────────────────────────────────
+function showRestTimer(seconds) {
+  const overlay = document.getElementById("restTimerOverlay");
+  const display = document.getElementById("restTimerDisplay");
+  const skipBtn = document.getElementById("restTimerSkip");
+
+  if (!overlay || !display || !skipBtn) return;
+
+  clearInterval(restTimerIntervalId);
+  restTimerRemaining = seconds;
+
+  function tick() {
+    const mins = Math.floor(restTimerRemaining / 60);
+    const secs = restTimerRemaining % 60;
+    display.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    if (restTimerRemaining <= 0) {
+      hideRestTimer();
+    } else {
+      restTimerRemaining -= 1;
+    }
+  }
+
+  tick();
+  overlay.classList.remove("hidden");
+  restTimerIntervalId = setInterval(tick, 1000);
+
+  skipBtn.onclick = hideRestTimer;
+}
+
+function hideRestTimer() {
+  clearInterval(restTimerIntervalId);
+  restTimerIntervalId = null;
+  const overlay = document.getElementById("restTimerOverlay");
+  if (overlay) overlay.classList.add("hidden");
 }
 
 async function init() {
