@@ -49,14 +49,22 @@ let restTimerRemaining = 0;
 
 const weekContainerEl = document.getElementById("weekContainer");
 const weekOverviewEl = document.getElementById("weekOverview");
-const freeWeightListEl = document.getElementById("freeWeightList");
-const toorxListEl = document.getElementById("toorxList");
 const editorDaySelectEl = document.getElementById("editorDaySelect");
 const editorDayTypeSelectEl = document.getElementById("editorDayTypeSelect");
 const editorSearchEl = document.getElementById("editorSearch");
 const libraryPickerEl = document.getElementById("libraryPicker");
 const dayExerciseListEl = document.getElementById("dayExerciseList");
 const saveWeekBtn = document.getElementById("saveWeekBtn");
+const openPickerBtn = document.getElementById("openPickerBtn");
+const closePickerBtn = document.getElementById("closePickerBtn");
+const pickerDrawerEl = document.getElementById("pickerDrawer");
+const openLibraryMgrBtn = document.getElementById("openLibraryMgrBtn");
+const closeLibraryMgrBtn = document.getElementById("closeLibraryMgrBtn");
+const libraryModalEl = document.getElementById("libraryModal");
+const libraryMgrListEl = document.getElementById("libraryMgrList");
+const newExerciseNameEl = document.getElementById("newExerciseName");
+const addExerciseBtnEl = document.getElementById("addExerciseBtn");
+const saveLibraryBtnEl = document.getElementById("saveLibraryBtn");
 const weekNumEl = document.getElementById("weekNum");
 const dayCountEl = document.getElementById("dayCount");
 const exerciseCountEl = document.getElementById("exerciseCount");
@@ -579,23 +587,73 @@ function updateStats() {
   weekRangeEl.textContent = `${formatDate(monday)} - ${formatDate(sunday)}`;
 }
 
+let libraryMgrActiveSource = "bench";
+
+function openPickerDrawer() {
+  if (!pickerDrawerEl) return;
+  renderEditor(); // refresh picker list
+  pickerDrawerEl.classList.remove("hidden");
+  if (editorSearchEl) editorSearchEl.focus();
+}
+
+function closePickerDrawer() {
+  if (!pickerDrawerEl) return;
+  pickerDrawerEl.classList.add("hidden");
+  if (editorSearchEl) editorSearchEl.value = "";
+}
+
+function renderLibraryModal() {
+  if (!libraryMgrListEl) return;
+  libraryMgrListEl.innerHTML = "";
+  const source = libraryMgrActiveSource === "bench"
+    ? state.exerciseLibrary.bench_dumbbell_barbell
+    : state.exerciseLibrary.toorx_msx50;
+  source.forEach((name, index) => {
+    const meta = inferExerciseMeta(name);
+    const li = document.createElement("li");
+    li.className = "library-mgr-item";
+    li.innerHTML = `
+      <div class="library-mgr-item-info">
+        <span class="library-mgr-item-name">${name}</span>
+        <span class="library-mgr-item-meta">${meta.trainingType} · ${meta.supportsWeight ? "con carico" : "corpo libero"}</span>
+      </div>
+      <button class="library-mgr-delete" data-index="${index}" type="button" title="Rimuovi">✕</button>
+    `;
+    li.querySelector(".library-mgr-delete").addEventListener("click", () => {
+      const key = libraryMgrActiveSource === "bench" ? "bench_dumbbell_barbell" : "toorx_msx50";
+      state.exerciseLibrary[key].splice(index, 1);
+      renderLibraryModal();
+    });
+    libraryMgrListEl.appendChild(li);
+  });
+}
+
+function openLibraryModal() {
+  if (!libraryModalEl) return;
+  renderLibraryModal();
+  libraryModalEl.classList.remove("hidden");
+}
+
+function closeLibraryModal() {
+  if (!libraryModalEl) return;
+  libraryModalEl.classList.add("hidden");
+}
+
+async function saveExerciseLibrary() {
+  const res = await fetch("/api/exercise-library", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ exerciseLibrary: state.exerciseLibrary })
+  });
+  if (!res.ok) {
+    alert("Errore nel salvataggio della libreria");
+    return false;
+  }
+  return true;
+}
+
 function renderLibrarySection() {
-  freeWeightListEl.innerHTML = "";
-  toorxListEl.innerHTML = "";
-
-  state.exerciseLibrary.bench_dumbbell_barbell.forEach((exercise) => {
-    const meta = inferExerciseMeta(exercise);
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${exercise}</strong><span>${meta.trainingType}${meta.supportsWeight ? " · con carico" : " · corpo libero"}</span>`;
-    freeWeightListEl.appendChild(li);
-  });
-
-  state.exerciseLibrary.toorx_msx50.forEach((exercise) => {
-    const meta = inferExerciseMeta(exercise);
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${exercise}</strong><span>${meta.trainingType}${meta.supportsWeight ? " · con carico" : " · corpo libero"}</span>`;
-    toorxListEl.appendChild(li);
-  });
+  // No-op: static library panel removed, managed via modal
 }
 
 function renderWeekCards() {
@@ -1435,6 +1493,52 @@ function bindEvents() {
 
   if (editorSearchEl) {
     editorSearchEl.addEventListener("input", renderEditor);
+  }
+
+  if (openPickerBtn) openPickerBtn.addEventListener("click", openPickerDrawer);
+  if (closePickerBtn) closePickerBtn.addEventListener("click", closePickerDrawer);
+  if (pickerDrawerEl) {
+    pickerDrawerEl.querySelector(".picker-drawer-backdrop").addEventListener("click", closePickerDrawer);
+  }
+
+  if (openLibraryMgrBtn) openLibraryMgrBtn.addEventListener("click", openLibraryModal);
+  if (closeLibraryMgrBtn) closeLibraryMgrBtn.addEventListener("click", closeLibraryModal);
+  if (libraryModalEl) {
+    libraryModalEl.querySelector(".library-modal-backdrop").addEventListener("click", closeLibraryModal);
+    libraryModalEl.querySelectorAll(".lib-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        libraryMgrActiveSource = tab.dataset.source;
+        libraryModalEl.querySelectorAll(".lib-tab").forEach((t) => t.classList.toggle("active", t === tab));
+        renderLibraryModal();
+      });
+    });
+  }
+
+  if (addExerciseBtnEl && newExerciseNameEl) {
+    addExerciseBtnEl.addEventListener("click", () => {
+      const name = newExerciseNameEl.value.trim();
+      if (!name) return;
+      const key = libraryMgrActiveSource === "bench" ? "bench_dumbbell_barbell" : "toorx_msx50";
+      if (!state.exerciseLibrary[key].includes(name)) {
+        state.exerciseLibrary[key].push(name);
+        renderLibraryModal();
+        newExerciseNameEl.value = "";
+      }
+    });
+    newExerciseNameEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addExerciseBtnEl.click();
+    });
+  }
+
+  if (saveLibraryBtnEl) {
+    saveLibraryBtnEl.addEventListener("click", async () => {
+      const ok = await saveExerciseLibrary();
+      if (ok) {
+        alert("Libreria salvata!");
+        closeLibraryModal();
+        renderEditor();
+      }
+    });
   }
 
   window.addEventListener("resize", () => {

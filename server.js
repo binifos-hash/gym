@@ -233,6 +233,24 @@ app.put("/api/workout-sessions", (req, res) => {
   }
 });
 
+app.put("/api/exercise-library", (req, res) => {
+  try {
+    const { exerciseLibrary } = req.body;
+    if (!exerciseLibrary || typeof exerciseLibrary !== "object") {
+      return res.status(400).json({ error: "Payload exerciseLibrary non valido" });
+    }
+    if (!Array.isArray(exerciseLibrary.bench_dumbbell_barbell) || !Array.isArray(exerciseLibrary.toorx_msx50)) {
+      return res.status(400).json({ error: "Formato exerciseLibrary non valido" });
+    }
+    const state = readState();
+    state.exerciseLibrary = exerciseLibrary;
+    writeState(state);
+    return res.json({ ok: true, exerciseLibrary: state.exerciseLibrary });
+  } catch (error) {
+    return res.status(500).json({ error: "Errore salvataggio libreria" });
+  }
+});
+
 app.get("/api/cleanup", (req, res) => {
   try {
     const state = readState(); // readState already cleans and rewrites

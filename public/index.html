@@ -20,47 +20,26 @@
   <main class="screen-wrap">
     <section id="tab-edit" class="tab-panel">
       <div class="panel-card">
-        <h2>Workout Builder</h2>
-        <div class="editor-controls">
-          <select id="editorDaySelect"></select>
-          <select id="editorDayTypeSelect">
-            <option value="">-- Tipo giorno --</option>
-            <option value="Spinta">Spinta</option>
-            <option value="Trazione">Trazione</option>
-            <option value="Gambe">Gambe</option>
-            <option value="Core">Core</option>
-            <option value="Cardio">Cardio</option>
-            <option value="Mobilita">Mobilita</option>
-            <option value="Full Body">Full Body</option>
-          </select>
-          <input id="editorSearch" type="text" placeholder="Cerca esercizio...">
+        <div class="editor-top">
+          <div class="editor-day-row">
+            <select id="editorDaySelect"></select>
+            <select id="editorDayTypeSelect">
+              <option value="">-- Tipo --</option>
+              <option value="Spinta">Spinta</option>
+              <option value="Trazione">Trazione</option>
+              <option value="Gambe">Gambe</option>
+              <option value="Core">Core</option>
+              <option value="Cardio">Cardio</option>
+              <option value="Mobilita">Mobilita</option>
+              <option value="Full Body">Full Body</option>
+            </select>
+          </div>
           <button id="saveWeekBtn" class="btn-save">Salva settimana</button>
         </div>
-        <div class="editor-layout">
-          <div class="editor-col">
-            <h3>Libreria completa</h3>
-            <div id="libraryPicker" class="library-picker"></div>
-          </div>
-          <div class="editor-col">
-            <h3>Esercizi del giorno</h3>
-            <ul id="dayExerciseList" class="day-ex-list"></ul>
-          </div>
-        </div>
+        <ul id="dayExerciseList" class="day-ex-list"></ul>
+        <button id="openPickerBtn" class="btn-add-exercise" type="button">+ Aggiungi esercizio</button>
       </div>
-
-      <div class="panel-card">
-        <h2>Libreria Esercizi</h2>
-        <div class="library-grid">
-          <article>
-            <h3>Panca piana · Manubri · Bilanciere</h3>
-            <ul id="freeWeightList"></ul>
-          </article>
-          <article>
-            <h3>Toorx MSX-50</h3>
-            <ul id="toorxList"></ul>
-          </article>
-        </div>
-      </div>
+      <button id="openLibraryMgrBtn" class="btn-library-mgr" type="button">Gestisci libreria esercizi</button>
     </section>
 
     <section id="tab-week" class="tab-panel active">
@@ -182,6 +161,40 @@
       <p class="rest-timer-label">PAUSA</p>
       <div id="restTimerDisplay" class="rest-timer-display">01:00</div>
       <button id="restTimerSkip" class="rest-timer-skip" type="button">SKIP</button>
+    </div>
+  </div>
+
+  <!-- Picker drawer -->
+  <div id="pickerDrawer" class="picker-drawer hidden">
+    <div class="picker-drawer-backdrop"></div>
+    <div class="picker-drawer-content">
+      <div class="picker-drawer-head">
+        <h3>Aggiungi esercizio</h3>
+        <button id="closePickerBtn" class="drawer-close" type="button">✕</button>
+      </div>
+      <input id="editorSearch" type="text" placeholder="Cerca esercizio..." autocomplete="off">
+      <div id="libraryPicker" class="library-picker"></div>
+    </div>
+  </div>
+
+  <!-- Library management modal -->
+  <div id="libraryModal" class="library-modal hidden">
+    <div class="library-modal-backdrop"></div>
+    <div class="library-modal-content">
+      <div class="library-modal-head">
+        <h3>Libreria Esercizi</h3>
+        <button id="closeLibraryMgrBtn" class="drawer-close" type="button">✕</button>
+      </div>
+      <div class="lib-tabs">
+        <button class="lib-tab active" data-source="bench" type="button">Pesi liberi</button>
+        <button class="lib-tab" data-source="toorx" type="button">Toorx MSX-50</button>
+      </div>
+      <ul id="libraryMgrList" class="library-mgr-list"></ul>
+      <div class="library-add-form">
+        <input id="newExerciseName" type="text" placeholder="Nome nuovo esercizio..." autocomplete="off">
+        <button id="addExerciseBtn" class="btn-save" type="button">Aggiungi</button>
+      </div>
+      <button id="saveLibraryBtn" class="btn-save btn-save-full" type="button">Salva libreria</button>
     </div>
   </div>
 
