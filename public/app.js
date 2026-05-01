@@ -1098,9 +1098,6 @@ function renderWorkoutDetail() {
     const row = document.createElement("label");
     row.className = `exercise-line ${exercise.completed ? "exercise-line-done" : ""}`;
 
-    const point = document.createElement("span");
-    point.className = "exercise-line-point";
-
     let checkbox = null;
     if (showCheckbox) {
       checkbox = document.createElement("input");
@@ -1137,13 +1134,46 @@ function renderWorkoutDetail() {
     content.appendChild(title);
     content.appendChild(meta);
 
-    row.appendChild(point);
     row.appendChild(checkbox);
     row.appendChild(content);
     timeline.appendChild(row);
   });
 
   workoutExerciseListEl.appendChild(timeline);
+
+  // Diary note section (only for completed workouts)
+  if (session.status === "completed") {
+    const existingEntry = state.personal.diary.find((e) => e.date === session.date);
+    const noteWrap = document.createElement("div");
+    noteWrap.className = "workout-diary-note";
+    const label = document.createElement("label");
+    label.textContent = "Nota allenamento";
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Come è andato? Annotazioni, sensazioni...";
+    textarea.value = existingEntry ? existingEntry.text : "";
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "workout-diary-save";
+    saveBtn.textContent = "Salva nota";
+    saveBtn.addEventListener("click", async () => {
+      const text = textarea.value.trim();
+      if (!text) return;
+      const idx = state.personal.diary.findIndex((e) => e.date === session.date);
+      if (idx >= 0) {
+        state.personal.diary[idx].text = text;
+      } else {
+        state.personal.diary.push({ date: session.date, text });
+      }
+      state.personal.diary.sort((a, b) => b.date.localeCompare(a.date));
+      await savePersonalState();
+      saveBtn.textContent = "✓ Salvato";
+      setTimeout(() => { saveBtn.textContent = "Salva nota"; }, 2000);
+    });
+    noteWrap.appendChild(label);
+    noteWrap.appendChild(textarea);
+    noteWrap.appendChild(saveBtn);
+    workoutExerciseListEl.appendChild(noteWrap);
+  }
 }
 
 function openCalendar() {

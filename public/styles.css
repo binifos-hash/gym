@@ -342,11 +342,7 @@ h3 {
 }
 
 .workout-kicker {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--accent2);
-  margin-bottom: 8px;
+  display: none;
 }
 
 .workout-detail-meta {
@@ -416,7 +412,46 @@ h3 {
   border: 1px solid var(--border);
 }
 
-.workout-planned-note {
+.workout-diary-note {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.workout-diary-note label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.workout-diary-note textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-size: 13px;
+}
+
+.workout-diary-save {
+  align-self: flex-end;
+  border: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 16px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: border-color 0.2s;
+}
+
+.workout-diary-save:hover {
+  border-color: rgba(255,255,255,0.3);
+}
   color: var(--muted);
   font-size: 12px;
   padding: 12px 14px;
@@ -437,20 +472,10 @@ h3 {
   gap: 12px;
 }
 
-.exercise-timeline::before {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: linear-gradient(180deg, rgba(232, 255, 71, 0.26), rgba(255, 92, 53, 0.18));
-}
-
 .exercise-line {
   position: relative;
   display: grid;
-  grid-template-columns: 22px 22px 1fr;
+  grid-template-columns: 22px 1fr;
   align-items: center;
   gap: 14px;
   min-height: 54px;
