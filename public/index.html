@@ -198,6 +198,37 @@
     </div>
   </div>
 
+  <!-- Exercise info panel -->
+  <div id="exerciseInfoPanel" class="exercise-info-panel hidden">
+    <div class="exercise-info-backdrop"></div>
+    <div class="exercise-info-content">
+      <div class="exercise-info-head">
+        <h3 id="exerciseInfoTitle"></h3>
+        <button id="closeExerciseInfoBtn" class="drawer-close" type="button">✕</button>
+      </div>
+      <div class="exercise-info-section">
+        <label class="exercise-info-label">Peso di riferimento</label>
+        <div class="exercise-info-weight-row">
+          <input id="exerciseInfoWeight" type="number" min="0" step="0.5" placeholder="0">
+          <span class="exercise-info-kg">kg</span>
+        </div>
+      </div>
+      <div class="exercise-info-section">
+        <label class="exercise-info-label">Note / Descrizione</label>
+        <textarea id="exerciseInfoDesc" rows="3" placeholder="Indicazioni tecniche, note personali..."></textarea>
+      </div>
+      <div class="exercise-info-section">
+        <label class="exercise-info-label">URL video YouTube</label>
+        <input id="exerciseInfoVideoUrl" type="url" placeholder="https://youtu.be/...">
+      </div>
+      <div id="exerciseInfoVideoWrap" class="exercise-info-video-wrap hidden">
+        <iframe id="exerciseInfoVideo" frameborder="0" allowfullscreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+      </div>
+      <button id="saveExerciseInfoBtn" class="btn-save btn-save-full" type="button">Salva</button>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

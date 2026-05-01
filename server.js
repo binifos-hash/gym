@@ -73,6 +73,10 @@ function ensureStateShape(state) {
     state.workoutSessions = {};
   }
 
+  if (!state.exerciseMeta || typeof state.exerciseMeta !== "object") {
+    state.exerciseMeta = {};
+  }
+
   return state;
 }
 
@@ -248,6 +252,21 @@ app.put("/api/exercise-library", (req, res) => {
     return res.json({ ok: true, exerciseLibrary: state.exerciseLibrary });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio libreria" });
+  }
+});
+
+app.put("/api/exercise-meta", (req, res) => {
+  try {
+    const { exerciseMeta } = req.body;
+    if (!exerciseMeta || typeof exerciseMeta !== "object") {
+      return res.status(400).json({ error: "Payload exerciseMeta non valido" });
+    }
+    const state = readState();
+    state.exerciseMeta = exerciseMeta;
+    writeState(state);
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ error: "Errore salvataggio exerciseMeta" });
   }
 });
 

@@ -39,8 +39,10 @@ const trainingTypeOptions = [
 ];
 
 const WORKOUT_SYNC_PAST_DAYS = 90;
+const TOORX_DEFAULT_VIDEO = "https://www.youtube.com/embed/wMtmj4TBsKY";
 
 let state = null;
+let exerciseInfoPanelCurrentName = null;
 let workoutDetailDate = null;
 let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
@@ -107,6 +109,16 @@ const tabPanels = [...document.querySelectorAll(".tab-panel")];
 const mainHeaderEl = document.querySelector(".main-header");
 const navIndicator = document.querySelector(".nav-indicator");
 
+const exerciseInfoPanelEl = document.getElementById("exerciseInfoPanel");
+const exerciseInfoTitleEl = document.getElementById("exerciseInfoTitle");
+const exerciseInfoWeightEl = document.getElementById("exerciseInfoWeight");
+const exerciseInfoDescEl = document.getElementById("exerciseInfoDesc");
+const exerciseInfoVideoUrlEl = document.getElementById("exerciseInfoVideoUrl");
+const exerciseInfoVideoWrapEl = document.getElementById("exerciseInfoVideoWrap");
+const exerciseInfoVideoEl = document.getElementById("exerciseInfoVideo");
+const saveExerciseInfoBtnEl = document.getElementById("saveExerciseInfoBtn");
+const closeExerciseInfoBtnEl = document.getElementById("closeExerciseInfoBtn");
+
 function moveNavIndicator(btn) {
   if (!navIndicator || !btn) return;
   const navPad = 8;
@@ -148,6 +160,83 @@ function formatMonthYear(date) {
     month: "long",
     year: "numeric"
   });
+}
+
+function getYouTubeEmbedUrl(url) {
+  if (!url) return null;
+  try {
+    // youtu.be/ID or youtube.com/watch?v=ID
+    const u = new URL(url);
+    let videoId = null;
+    if (u.hostname === "youtu.be") {
+      videoId = u.pathname.slice(1).split("?")[0];
+    } else if (u.hostname.includes("youtube.com")) {
+      if (u.pathname.startsWith("/embed/")) {
+        videoId = u.pathname.replace("/embed/", "").split("/")[0];
+      } else {
+        videoId = u.searchParams.get("v");
+      }
+    }
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function isToorxExercise(name) {
+  return state && state.exerciseLibrary && state.exerciseLibrary.toorx_msx50 &&
+    state.exerciseLibrary.toorx_msx50.includes(name);
+}
+
+function openExerciseInfoPanel(name) {
+  exerciseInfoPanelCurrentName = name;
+  const meta = (state.exerciseMeta && state.exerciseMeta[name]) || {};
+  exerciseInfoTitleEl.textContent = name;
+  exerciseInfoWeightEl.value = meta.weight != null ? meta.weight : "";
+  exerciseInfoDescEl.value = meta.description || "";
+
+  // If no saved URL but it's a toorx exercise, use default video
+  const savedUrl = meta.videoUrl || "";
+  const displayUrl = savedUrl || (isToorxExercise(name) ? "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y" : "");
+  exerciseInfoVideoUrlEl.value = displayUrl;
+  updateExerciseInfoVideo(displayUrl);
+  exerciseInfoPanelEl.classList.remove("hidden");
+}
+
+function closeExerciseInfoPanel() {
+  exerciseInfoPanelEl.classList.add("hidden");
+  if (exerciseInfoVideoEl) exerciseInfoVideoEl.src = "";
+  exerciseInfoPanelCurrentName = null;
+}
+
+function updateExerciseInfoVideo(url) {
+  const embedUrl = getYouTubeEmbedUrl(url);
+  if (embedUrl) {
+    exerciseInfoVideoEl.src = embedUrl;
+    exerciseInfoVideoWrapEl.classList.remove("hidden");
+  } else {
+    exerciseInfoVideoEl.src = "";
+    exerciseInfoVideoWrapEl.classList.add("hidden");
+  }
+}
+
+async function saveExerciseInfoEntry() {
+  if (!exerciseInfoPanelCurrentName) return;
+  const name = exerciseInfoPanelCurrentName;
+  if (!state.exerciseMeta) state.exerciseMeta = {};
+  const weightVal = parseFloat(exerciseInfoWeightEl.value);
+  state.exerciseMeta[name] = {
+    weight: isNaN(weightVal) ? null : weightVal,
+    description: exerciseInfoDescEl.value.trim(),
+    videoUrl: exerciseInfoVideoUrlEl.value.trim()
+  };
+  const res = await fetch("/api/exercise-meta", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ exerciseMeta: state.exerciseMeta })
+  });
+  if (!res.ok) { alert("Errore nel salvataggio"); return; }
+  closeExerciseInfoPanel();
 }
 
 function formatIsoDate(date) {
@@ -512,6 +601,7 @@ async function loadState() {
   ensureWeekTemplateTypes();
   normalizeWeekTemplate();
   normalizeWorkoutSessions();
+  if (!state.exerciseMeta || typeof state.exerciseMeta !== "object") state.exerciseMeta = {};
   // Remove stale planned sessions — they are always computed on the fly
   Object.keys(state.workoutSessions).forEach((key) => {
     const s = state.workoutSessions[key];
@@ -617,8 +707,14 @@ function renderLibraryModal() {
         <span class="library-mgr-item-name">${name}</span>
         <span class="library-mgr-item-meta">${meta.trainingType} · ${meta.supportsWeight ? "con carico" : "corpo libero"}</span>
       </div>
-      <button class="library-mgr-delete" data-index="${index}" type="button" title="Rimuovi">✕</button>
+      <div style="display:flex;gap:6px">
+        <button class="library-mgr-edit" data-index="${index}" type="button" title="Dettagli">ⓘ</button>
+        <button class="library-mgr-delete" data-index="${index}" type="button" title="Rimuovi">✕</button>
+      </div>
     `;
+    li.querySelector(".library-mgr-edit").addEventListener("click", () => {
+      openExerciseInfoPanel(name);
+    });
     li.querySelector(".library-mgr-delete").addEventListener("click", () => {
       const key = libraryMgrActiveSource === "bench" ? "bench_dumbbell_barbell" : "toorx_msx50";
       state.exerciseLibrary[key].splice(index, 1);
@@ -1137,9 +1233,21 @@ function renderWorkoutDetail() {
     content.appendChild(title);
     content.appendChild(meta);
 
+    const infoBtn = document.createElement("button");
+    infoBtn.type = "button";
+    infoBtn.className = "exercise-info-btn";
+    infoBtn.title = "Dettagli esercizio";
+    infoBtn.textContent = "ⓘ";
+    infoBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openExerciseInfoPanel(exercise.name);
+    });
+
     row.appendChild(point);
     row.appendChild(checkbox);
     row.appendChild(content);
+    row.appendChild(infoBtn);
     timeline.appendChild(row);
   });
 
@@ -1533,6 +1641,15 @@ function bindEvents() {
   if (closePickerBtn) closePickerBtn.addEventListener("click", closePickerDrawer);
   if (pickerDrawerEl) {
     pickerDrawerEl.querySelector(".picker-drawer-backdrop").addEventListener("click", closePickerDrawer);
+  }
+
+  if (closeExerciseInfoBtnEl) closeExerciseInfoBtnEl.addEventListener("click", closeExerciseInfoPanel);
+  if (exerciseInfoPanelEl) {
+    exerciseInfoPanelEl.querySelector(".exercise-info-backdrop").addEventListener("click", closeExerciseInfoPanel);
+  }
+  if (saveExerciseInfoBtnEl) saveExerciseInfoBtnEl.addEventListener("click", saveExerciseInfoEntry);
+  if (exerciseInfoVideoUrlEl) {
+    exerciseInfoVideoUrlEl.addEventListener("blur", () => updateExerciseInfoVideo(exerciseInfoVideoUrlEl.value));
   }
 
   if (openLibraryMgrBtn) openLibraryMgrBtn.addEventListener("click", openLibraryModal);
