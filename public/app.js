@@ -360,6 +360,8 @@ function createWorkoutSession(dateKey, exercises) {
 function getOrBuildSession(dateKey) {
   const existing = state.workoutSessions[dateKey];
   if (existing) return existing;
+  // Never build virtual sessions for past dates — only real saved data counts
+  if (dateKey < getTodayKey()) return null;
   const templateExercises = getTemplateExercisesForDate(dateKey);
   if (!templateExercises.length) return null;
   return createWorkoutSession(dateKey, templateExercises);
