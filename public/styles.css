@@ -229,32 +229,22 @@ h3 {
   line-height: 1;
 }
 
-.day-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 5px;
-}
-
-.day-tag {
-  font-size: 10px;
-  font-weight: 700;
+.day-category {
+  font-size: 12px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-  opacity: 0.85;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+  color: var(--muted);
 }
 
-/* tag colours per training type */
-.day-tag-spinta        { color: #7eb8ff; background: rgba(126,184,255,0.10); }
-.day-tag-trazione      { color: #c084fc; background: rgba(192,132,252,0.10); }
-.day-tag-gambe         { color: #4ade80; background: rgba(74,222,128,0.10); }
-.day-tag-core          { color: #fb923c; background: rgba(251,146,60,0.10); }
-.day-tag-cardio        { color: #f87171; background: rgba(248,113,113,0.10); }
-.day-tag-full-body     { color: var(--accent); background: rgba(232,255,71,0.10); }
-.day-tag-mobilita      { color: #2dd4bf; background: rgba(45,212,191,0.10); }
+.day-category[data-type="spinta"]    { color: #7eb8ff; }
+.day-category[data-type="trazione"]  { color: #c084fc; }
+.day-category[data-type="gambe"]     { color: #4ade80; }
+.day-category[data-type="core"]      { color: #fb923c; }
+.day-category[data-type="cardio"]    { color: #f87171; }
+.day-category[data-type="full-body"] { color: var(--accent); }
+.day-category[data-type="mobilita"]  { color: #2dd4bf; }
 
 .day-right {
   display: flex;

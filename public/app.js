@@ -638,20 +638,18 @@ function renderWeekCards() {
     title.className = "day-title";
     title.textContent = dayLabels[day];
 
-    const tagsRow = document.createElement("div");
-    tagsRow.className = "day-tags";
+    const categoryLabel = document.createElement("div");
+    categoryLabel.className = "day-category";
     const uniqueTypes = session && session.exercises.length
       ? [...new Set(session.exercises.map((e) => e.trainingType).filter(Boolean))]
       : [];
-    uniqueTypes.forEach((type) => {
-      const tag = document.createElement("span");
-      tag.className = `day-tag day-tag-${type.toLowerCase().replace(/\s+/g, "-")}`;
-      tag.textContent = type;
-      tagsRow.appendChild(tag);
-    });
+    if (uniqueTypes.length) {
+      categoryLabel.textContent = uniqueTypes.join(" · ");
+      categoryLabel.dataset.type = uniqueTypes[0].toLowerCase().replace(/\s+/g, "-");
+    }
 
     dayInfo.appendChild(title);
-    dayInfo.appendChild(tagsRow);
+    if (uniqueTypes.length) dayInfo.appendChild(categoryLabel);
     dayLeft.appendChild(dayNum);
     dayLeft.appendChild(dayInfo);
 
