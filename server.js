@@ -6,6 +6,35 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, "data", "state.json");
 
+// ── Storage backend ────────────────────────────────────────────
+// If DATABASE_URL is set (Render / production) use PostgreSQL.
+// Otherwise fall back to the local JSON file (dev).
+let pgPool = null;
+if (process.env.DATABASE_URL) {
+  const { Pool } = require("pg");
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+}
+
+async function initDb() {
+  if (!pgPool) return;
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS app_state (
+      id   INTEGER PRIMARY KEY DEFAULT 1,
+      data JSONB   NOT NULL
+    )
+  `);
+  // Seed with empty object if no row exists yet
+  await pgPool.query(`
+    INSERT INTO app_state (id, data)
+    VALUES (1, '{}'::jsonb)
+    ON CONFLICT (id) DO NOTHING
+  `);
+}
+// ──────────────────────────────────────────────────────────────
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -14,9 +43,15 @@ function getTodayKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function readState() {
-  const raw = fs.readFileSync(DATA_FILE, "utf8");
-  const state = ensureStateShape(JSON.parse(raw));
+async function readState() {
+  let state;
+  if (pgPool) {
+    const { rows } = await pgPool.query("SELECT data FROM app_state WHERE id = 1");
+    state = ensureStateShape(rows[0]?.data || {});
+  } else {
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    state = ensureStateShape(JSON.parse(raw));
+  }
 
   // Clean up sessions that should never be persisted
   const todayKey = getTodayKey();
@@ -28,13 +63,21 @@ function readState() {
       dirty = true;
     }
   });
-  if (dirty) writeState(state);
+  if (dirty) await writeState(state);
 
   return state;
 }
 
-function writeState(state) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(ensureStateShape(state), null, 2), "utf8");
+async function writeState(state) {
+  const shaped = ensureStateShape(state);
+  if (pgPool) {
+    await pgPool.query(
+      "UPDATE app_state SET data = $1 WHERE id = 1",
+      [shaped]
+    );
+  } else {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(shaped, null, 2), "utf8");
+  }
 }
 
 function ensureStateShape(state) {
@@ -144,16 +187,16 @@ function isValidWorkoutSessions(workoutSessions) {
   });
 }
 
-app.get("/api/state", (req, res) => {
+app.get("/api/state", async (req, res) => {
   try {
-    const state = readState();
+    const state = await readState();
     res.json(state);
   } catch (error) {
     res.status(500).json({ error: "Errore lettura stato" });
   }
 });
 
-app.put("/api/week-template", (req, res) => {
+app.put("/api/week-template", async (req, res) => {
   try {
     const { weekTemplate, weekTemplateTypes } = req.body;
 
@@ -161,12 +204,12 @@ app.put("/api/week-template", (req, res) => {
       return res.status(400).json({ error: "Formato weekTemplate non valido" });
     }
 
-    const state = readState();
+    const state = await readState();
     state.weekTemplate = weekTemplate;
     if (weekTemplateTypes && typeof weekTemplateTypes === "object") {
       state.weekTemplateTypes = weekTemplateTypes;
     }
-    writeState(state);
+    await writeState(state);
 
     return res.json({ ok: true, weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes });
   } catch (error) {
@@ -174,7 +217,7 @@ app.put("/api/week-template", (req, res) => {
   }
 });
 
-app.put("/api/progress", (req, res) => {
+app.put("/api/progress", async (req, res) => {
   try {
     const { weekKey, day, exercise, completed } = req.body;
 
@@ -182,7 +225,7 @@ app.put("/api/progress", (req, res) => {
       return res.status(400).json({ error: "Payload progress non valido" });
     }
 
-    const state = readState();
+    const state = await readState();
 
     if (!state.progress[weekKey]) {
       state.progress[weekKey] = {};
@@ -193,7 +236,7 @@ app.put("/api/progress", (req, res) => {
     }
 
     state.progress[weekKey][day][exercise] = completed;
-    writeState(state);
+    await writeState(state);
 
     return res.json({ ok: true });
   } catch (error) {
@@ -201,7 +244,7 @@ app.put("/api/progress", (req, res) => {
   }
 });
 
-app.put("/api/personal", (req, res) => {
+app.put("/api/personal", async (req, res) => {
   try {
     const { personal } = req.body;
 
@@ -209,9 +252,9 @@ app.put("/api/personal", (req, res) => {
       return res.status(400).json({ error: "Payload personal non valido" });
     }
 
-    const state = readState();
+    const state = await readState();
     state.personal = personal;
-    writeState(state);
+    await writeState(state);
 
     return res.json({ ok: true, personal: state.personal });
   } catch (error) {
@@ -219,7 +262,7 @@ app.put("/api/personal", (req, res) => {
   }
 });
 
-app.put("/api/workout-sessions", (req, res) => {
+app.put("/api/workout-sessions", async (req, res) => {
   try {
     const { workoutSessions } = req.body;
 
@@ -227,9 +270,9 @@ app.put("/api/workout-sessions", (req, res) => {
       return res.status(400).json({ error: "Payload workoutSessions non valido" });
     }
 
-    const state = readState();
+    const state = await readState();
     state.workoutSessions = workoutSessions;
-    writeState(state);
+    await writeState(state);
 
     return res.json({ ok: true, workoutSessions: state.workoutSessions });
   } catch (error) {
@@ -237,7 +280,7 @@ app.put("/api/workout-sessions", (req, res) => {
   }
 });
 
-app.put("/api/exercise-library", (req, res) => {
+app.put("/api/exercise-library", async (req, res) => {
   try {
     const { exerciseLibrary } = req.body;
     if (!exerciseLibrary || typeof exerciseLibrary !== "object") {
@@ -246,33 +289,33 @@ app.put("/api/exercise-library", (req, res) => {
     if (!Array.isArray(exerciseLibrary.bench_dumbbell_barbell) || !Array.isArray(exerciseLibrary.toorx_msx50)) {
       return res.status(400).json({ error: "Formato exerciseLibrary non valido" });
     }
-    const state = readState();
+    const state = await readState();
     state.exerciseLibrary = exerciseLibrary;
-    writeState(state);
+    await writeState(state);
     return res.json({ ok: true, exerciseLibrary: state.exerciseLibrary });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio libreria" });
   }
 });
 
-app.put("/api/exercise-meta", (req, res) => {
+app.put("/api/exercise-meta", async (req, res) => {
   try {
     const { exerciseMeta } = req.body;
     if (!exerciseMeta || typeof exerciseMeta !== "object") {
       return res.status(400).json({ error: "Payload exerciseMeta non valido" });
     }
-    const state = readState();
+    const state = await readState();
     state.exerciseMeta = exerciseMeta;
-    writeState(state);
+    await writeState(state);
     return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio exerciseMeta" });
   }
 });
 
-app.get("/api/cleanup", (req, res) => {
+app.get("/api/cleanup", async (req, res) => {
   try {
-    const state = readState(); // readState already cleans and rewrites
+    const state = await readState();
     const sessions = Object.keys(state.workoutSessions).length;
     return res.json({ ok: true, sessionsRemaining: sessions });
   } catch (error) {
@@ -284,13 +327,18 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`Gym app in ascolto su http://localhost:${PORT}`);
-  // Run cleanup on startup so stale sessions are removed immediately on deploy
-  try {
-    readState();
-    console.log("Cleanup sessioni completato all'avvio.");
-  } catch (e) {
-    console.error("Errore cleanup avvio:", e);
-  }
+initDb().then(() => {
+  app.listen(PORT, async () => {
+    console.log(`Gym app in ascolto su http://localhost:${PORT}`);
+    console.log(pgPool ? "Storage: PostgreSQL" : "Storage: file JSON locale");
+    try {
+      await readState();
+      console.log("Cleanup sessioni completato all'avvio.");
+    } catch (e) {
+      console.error("Errore cleanup avvio:", e);
+    }
+  });
+}).catch((e) => {
+  console.error("Errore inizializzazione DB:", e);
+  process.exit(1);
 });
