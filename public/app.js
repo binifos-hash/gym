@@ -1397,9 +1397,14 @@ function renderEditor() {
       weightInput.min = "0";
       weightInput.placeholder = "Peso kg";
       const _metaW = state.exerciseMeta?.[exercise.name]?.weight;
+      const _defW = EXERCISE_DEFAULTS[exercise.name]?.weight;
       weightInput.value = typeof exercise.weight === "number"
         ? String(exercise.weight)
-        : (typeof _metaW === "number" ? String(_metaW) : "");
+        : typeof _metaW === "number"
+          ? String(_metaW)
+          : typeof _defW === "number"
+            ? String(_defW)
+            : "";
 
       weightInput.addEventListener("input", () => {
         if (weightInput.value === "") {
