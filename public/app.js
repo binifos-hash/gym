@@ -582,7 +582,17 @@ function openExerciseInfoPanel(name, sets, reps) {
   const saved = (state.exerciseMeta && state.exerciseMeta[name]) || {};
   const defaults = EXERCISE_DEFAULTS[name] || {};
   exerciseInfoTitleEl.textContent = name;
-  exerciseInfoWeightEl.value = saved.weight != null ? saved.weight : (defaults.weight != null ? defaults.weight : "");
+
+  // Prefer the session's stored exercise weight (historical snapshot) over the global meta weight.
+  // This prevents the panel from showing a later-updated weight when reviewing completed sessions.
+  const sessionExercise = workoutDetailDate && state.workoutSessions[workoutDetailDate]
+    ? state.workoutSessions[workoutDetailDate].exercises.find((e) => e.name === name)
+    : null;
+  const sessionWeight = sessionExercise && typeof sessionExercise.weight === "number" ? sessionExercise.weight : null;
+  const effectiveWeight = sessionWeight !== null
+    ? sessionWeight
+    : (saved.weight != null ? saved.weight : (defaults.weight != null ? defaults.weight : ""));
+  exerciseInfoWeightEl.value = effectiveWeight !== "" ? String(effectiveWeight) : "";
   exerciseInfoDescEl.value = saved.description != null ? saved.description : (defaults.description || "");
 
   // Sets × Reps — look up from session/template if not passed directly
@@ -637,11 +647,38 @@ async function saveExerciseInfoEntry() {
   const name = exerciseInfoPanelCurrentName;
   if (!state.exerciseMeta) state.exerciseMeta = {};
   const weightVal = parseFloat(exerciseInfoWeightEl.value);
+  const weightSave = isNaN(weightVal) ? null : weightVal;
+
+  // 1. Save to exerciseMeta (global reference / default weight)
   state.exerciseMeta[name] = {
-    weight: isNaN(weightVal) ? null : weightVal,
+    weight: weightSave,
     description: exerciseInfoDescEl.value.trim(),
     videoUrl: exerciseInfoVideoUrlEl.value.trim()
   };
+
+  // 2. Propagate weight back to the week template so the editor reflects it.
+  //    Only update entries that currently have no weight override.
+  if (weightSave !== null && state.weekTemplate) {
+    Object.values(state.weekTemplate).forEach((entries) => {
+      if (!Array.isArray(entries)) return;
+      entries.forEach((entry) => {
+        if (entry && entry.name === name && entry.weight == null) {
+          entry.weight = weightSave;
+        }
+      });
+    });
+  }
+
+  // 3. Update the current session's exercise weight ONLY if the session is still
+  //    in-progress or paused (i.e. NOT completed). Never rewrite finished history.
+  if (workoutDetailDate && state.workoutSessions[workoutDetailDate]) {
+    const session = state.workoutSessions[workoutDetailDate];
+    if (session.status === "in_progress" || session.status === "paused") {
+      const ex = session.exercises.find((e) => e.name === name);
+      if (ex && ex.supportsWeight) ex.weight = weightSave;
+    }
+  }
+
   const res = await fetch("/api/exercise-meta", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -1359,7 +1396,10 @@ function renderEditor() {
       weightInput.step = "0.5";
       weightInput.min = "0";
       weightInput.placeholder = "Peso kg";
-      weightInput.value = typeof exercise.weight === "number" ? String(exercise.weight) : "";
+      const _metaW = state.exerciseMeta?.[exercise.name]?.weight;
+      weightInput.value = typeof exercise.weight === "number"
+        ? String(exercise.weight)
+        : (typeof _metaW === "number" ? String(_metaW) : "");
 
       weightInput.addEventListener("input", () => {
         if (weightInput.value === "") {
