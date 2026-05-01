@@ -82,31 +82,30 @@
   },
   "weekTemplate": {
     "lunedi": [
-      "Chest press macchina",
-      "Croci ai cavi bassi",
-      "Shoulder press stazione alta",
-      "Alzate laterali al cavo",
-      "Tricipiti pushdown corda",
+      "Front Chest Press",
+      "Incline Press",
+      "Butterfly",
+      "Seated Front Raise",
+      "Overhead Triceps Extension",
       "Panca piana manubri"
     ],
     "martedi": [],
     "mercoledi": [
-      "Lat machine avanti presa larga",
-      "Pulley basso presa stretta",
-      "Face pull cavo alto",
-      "Bicipiti curl al cavo basso dritto",
-      "Crunch al cavo alto",
-      "Woodchopper alto-basso",
+      "Lat Machine",
+      "Rowing",
+      "Stand Mid Row",
+      "Biceps Curl",
+      "Arm Curl",
       "Curl bilanciere in piedi"
     ],
     "giovedi": [],
     "venerdi": [
-      "Squat al cavo basso",
-      "Hip hinge al cavo basso",
-      "Leg curl in piedi con cavigliera al cavo",
-      "Glute kickback al cavo",
-      "Alzate frontali al cavo",
-      "Bulgarian split squat con manubri"
+      "Leg Press",
+      "Leg Extension",
+      "Standing Leg Curl",
+      "Hip Abduction",
+      "Lateral Leg Raise",
+      "Glute Kick Back"
     ],
     "sabato": [],
     "domenica": []

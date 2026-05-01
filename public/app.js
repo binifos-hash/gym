@@ -313,6 +313,117 @@ const EXERCISE_DEFAULTS = {
     weight: 20,
     description: "In piedi davanti al cavo basso, barra o maniglie ai lati. Alzata delle spalle verso le orecchie tenendo le braccia dritte. Mantieni 1 secondo in alto, abbassa lentamente. 3 serie × 15 rip · recupero 60s",
     videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  // -------- TOORX MSX-50 (EN) --------
+  "Front Chest Press": {
+    weight: 20,
+    description: "Seduto alla stazione chest press frontale, maniglie all'altezza del petto con gomiti a 90°. Spingi in avanti estendendo le braccia senza bloccare i gomiti, poi ritorna controllando fino allo stiramento pettorale. Tieni la schiena incollata al poggiaschena. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Butterfly": {
+    weight: 15,
+    description: "Seduto alla macchina butterfly (pec deck), avambracci sui cuscinetti laterali a 90°. Unisci i gomiti davanti al petto contraendo il petto, torna lentamente sentendo lo stiramento con una pausa di 1s in apertura. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Incline Press": {
+    weight: 15,
+    description: "Seduto alla stazione incline press con schienale inclinato a circa 30-45°, maniglie leggermente sopra il petto. Spingi verso l'alto e in avanti, poi ritorna lentamente. Lavora la parte alta del petto e il deltoide anteriore. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Seated Front Raise": {
+    weight: 10,
+    description: "Seduto alla macchina, maniglie basse. Alza le braccia frontalmente fino all'altezza delle spalle (o appena sopra) con gomiti leggermente flessi. Abbassa lentamente in 3 secondi. Isola il deltoide anteriore. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Lat Machine": {
+    weight: 15,
+    description: "Seduto alla lat machine, coscie bloccate sotto i cuscinetti. Presa larga pronata (più larga delle spalle). Tira la barra verso il petto espandendo il petto e contraendo le scapole verso il basso. Non iperestendere la schiena. Risali controllando. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Lat Machine Inverse": {
+    weight: 15,
+    description: "Come la Lat Machine ma con presa supinata (palmi verso di te, mani più ravvicinate). Maggiore attivazione dei bicipiti e della parte bassa del gran dorsale. Tira verso il petto contraendo la schiena. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Lat Pull Down": {
+    weight: 12,
+    description: "In piedi o in ginocchio davanti al cavo alto con barra o corda, braccia quasi tese. Spingi verso il basso portando la barra lungo i fianchi contraendo il gran dorsale, senza flettere i gomiti. Ritorna lentamente. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Behind Neck Pull-Down": {
+    weight: 12,
+    description: "Seduto alla lat machine. Presa larga, inclina il busto leggermente in avanti e porta la barra dietro la nuca (non forzare: se hai problemi alla spalla, evita questo esercizio). Contrai il dorsale, risali controllando. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Pectoral Machine": {
+    weight: 20,
+    description: "Seduto alla macchina pettorale (convergente o a leve). Avambracci o mani sulle leve laterali. Convergi verso il centro contraendo i pettorali, mantieni 1 secondo, ritorna con controllo. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Seated Fly": {
+    weight: 10,
+    description: "Seduto alla macchina fly (cavi o leve). Braccia aperte lateralmente con gomiti leggermente flessi. Convergi avanti portando le mani davanti al petto, mantieni 1s, ritorna sentendo lo stiramento. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Leg Extension": {
+    weight: 20,
+    description: "Seduto alla macchina leg extension, cuscinetto sulla parte superiore del piede. Estendi le ginocchia fino a portare le gambe in orizzontale, mantieni 1 secondo contraendo il quadricipite, abbassa lentamente. Isola il quadricipite. 3 × 15 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Standing Leg Curl": {
+    weight: 15,
+    description: "In piedi alla macchina leg curl, cuscinetto sulla parte bassa del polpaccio. Fletti il ginocchio portando il tallone verso i glutei, contraendo i femorali. Abbassa lentamente. Lavora un gamba alla volta per simmetria. 3 × 12 per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Overhead Triceps Extension": {
+    weight: 15,
+    description: "Seduto o in piedi, cavo alto o corda dietro la nuca. Gomiti puntano in avanti, estendi le braccia portando la corda/barra verso il basso/frontalmente. Lavora il capo lungo del tricipite (il più grande). 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Triceps Extension": {
+    weight: 15,
+    description: "In piedi davanti al cavo alto, barra dritta o curva in presa stretta (più stretta delle spalle). Gomiti fermi ai fianchi. Spingi verso il basso estendendo completamente i gomiti. Mantieni 1s, risali controllando. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Rowing": {
+    weight: 20,
+    description: "Seduto al rower/pulley basso con schiena dritta e gambe leggermente flesse, presa con maniglia triangolare. Tira verso l'ombelico mantenendo il busto fermo e le scapole che si chiudono a fine movimento. Ritorna estendendo le braccia. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Biceps Curl": {
+    weight: 15,
+    description: "In piedi o seduto davanti al cavo basso, barra EZ o diritta in presa supinata. Fletti i gomiti alzando la barra verso le spalle, tieni i gomiti fermi. Abbassa lentamente in 3 secondi. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Stand Mid Row": {
+    weight: 20,
+    description: "In piedi davanti al cavo centrale (all'altezza del petto), presa con barra o maniglie. Piedi larghi, core contratto. Tira orizzontalmente verso il petto/ombelico stringendo le scapole. Ritorna controllando. 3 × 10 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Hip Abduction": {
+    weight: 20,
+    description: "Seduto alla macchina hip abduction (o con cavigliera al cavo). Apri le gambe lateralmente contro la resistenza contraendo il gluteo medio. Ritorna lentamente. 3 × 15 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Lateral Leg Raise": {
+    weight: 8,
+    description: "In piedi di fianco alla macchina, cavigliera al cavo basso. Alza la gamba lateralmente verso l'esterno contraendo il gluteo medio. Tieni il busto fermo, abbassa lentamente. 3 × 15 per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Glute Kick Back": {
+    weight: 10,
+    description: "In piedi di fronte alla macchina con cavigliera al cavo basso, corpo leggermente inclinato in avanti appoggiato alle maniglie. Spingi il tallone verso il dietro/alto contraendo il gluteo al massimo. Mantieni 1s in cima, ritorna lentamente. 3 × 15 per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Leg Press": {
+    weight: 40,
+    description: "Seduto alla macchina leg press, piedi sulla piattaforma a larghezza fianchi (o leggermente più larghi). Abbassa la piattaforma fino a 90° di flessione del ginocchio, poi spingi espirando. Non bloccare i gomiti a fine movimento. Varia la posizione dei piedi per lavorare diversamente il quadricipite/gluteo. 3 × 12 · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Arm Curl": {
+    weight: 12,
+    description: "Seduto alla macchina arm curl (Scott machine), avambracci sul cuscinetto inclinato. Fletti i gomiti portando le mani verso le spalle, mantieni 1s, abbassa lentamente. Isola completamente il bicipite eliminando l'inerzia. 3 × 12 · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
   }
 };
 
@@ -568,9 +679,9 @@ function inferExerciseMeta(name) {
   const cardioPattern = /(corsa|bike|cyclette|ellittica|cardio|jump|burpee|salto)/;
   const mobilityPattern = /(mobilita|stretch|allung|yoga)/;
   const corePattern = /(plank|crunch|addom|sit up|leg raise|hollow|core)/;
-  const legsPattern = /(squat|affondi|leg |polpacci|calf|hip thrust|stacco rumeno)/;
-  const pushPattern = /(panca|chest|spinte|military|shoulder press|dip|tricip|push)/;
-  const pullPattern = /(rematore|lat|pulldown|pulley|trazioni|curl|face pull|stacco|row)/;
+  const legsPattern = /(squat|affondi|leg |polpacci|calf|hip thrust|stacco rumeno|leg press|leg extension|leg curl|standing leg curl|hip abduction|lateral leg raise|glute kick)/;
+  const pushPattern = /(panca|chest|spinte|military|shoulder press|dip|tricip|push|incline press|front chest|butterfly|pectoral|seated fly|overhead tricep|triceps extension|seated front raise)/;
+  const pullPattern = /(rematore|lat machine|lat pull|pulldown|pulley|trazioni|curl|face pull|stacco|row|rowing|stand mid row|biceps curl|arm curl|behind neck)/;
   const bodyweightPattern = /(plank|crunch|sit up|burpee|mountain climber|jumping jack|stretch)/;
 
   if (cardioPattern.test(lower)) {
@@ -624,7 +735,9 @@ function normalizeExerciseEntry(entry) {
     trainingType: (isObj && entry.trainingType) || inferred.trainingType,
     supportsWeight,
     weight,
-    restSeconds: (isObj && typeof entry.restSeconds === "number") ? entry.restSeconds : 60
+    restSeconds: (isObj && typeof entry.restSeconds === "number") ? entry.restSeconds : 60,
+    sets: (isObj && typeof entry.sets === "number") ? entry.sets : 3,
+    reps: (isObj && typeof entry.reps === "number") ? entry.reps : 10
   };
 }
 
@@ -1242,6 +1355,36 @@ function renderEditor() {
       controls.appendChild(weightInput);
     }
 
+    const setsInput = document.createElement("input");
+    setsInput.type = "number";
+    setsInput.min = "1";
+    setsInput.max = "10";
+    setsInput.placeholder = "Serie";
+    setsInput.className = "sets-reps-input";
+    setsInput.title = "Serie";
+    setsInput.value = typeof exercise.sets === "number" ? String(exercise.sets) : "3";
+    setsInput.addEventListener("input", () => {
+      const v = parseInt(setsInput.value, 10);
+      exercise.sets = isNaN(v) || v < 1 ? 3 : v;
+      if (workoutDetailDate) renderWorkoutDetail();
+    });
+    controls.appendChild(setsInput);
+
+    const repsInput = document.createElement("input");
+    repsInput.type = "number";
+    repsInput.min = "1";
+    repsInput.max = "100";
+    repsInput.placeholder = "Rip";
+    repsInput.className = "sets-reps-input";
+    repsInput.title = "Ripetizioni";
+    repsInput.value = typeof exercise.reps === "number" ? String(exercise.reps) : "10";
+    repsInput.addEventListener("input", () => {
+      const v = parseInt(repsInput.value, 10);
+      exercise.reps = isNaN(v) || v < 1 ? 10 : v;
+      if (workoutDetailDate) renderWorkoutDetail();
+    });
+    controls.appendChild(repsInput);
+
     const restInput = document.createElement("input");
     restInput.type = "number";
     restInput.step = "5";
@@ -1506,7 +1649,9 @@ function renderWorkoutDetail() {
 
     const meta = document.createElement("div");
     meta.className = "exercise-line-meta";
-    meta.textContent = `${exercise.trainingType} · ${exercise.category}${exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : ""}`;
+    const weightStr = exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : "";
+    const setsStr = (exercise.sets || 3) + "×" + (exercise.reps || 10);
+    meta.textContent = `${setsStr} · ${exercise.trainingType}${weightStr}`;
 
     content.appendChild(title);
     content.appendChild(meta);
