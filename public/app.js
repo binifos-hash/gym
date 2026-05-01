@@ -263,6 +263,56 @@ const EXERCISE_DEFAULTS = {
     weight: 12,
     description: "In piedi o seduto, cavo basso maniglia singola. Tira verso il fianco mantenendo la schiena dritta e la scapola che si avvicina alla colonna. 3 serie × 10 rip per braccio · recupero 90s",
     videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Hip hinge al cavo basso": {
+    weight: 15,
+    description: "In piedi davanti al cavo basso, maniglia tra le gambe. Gambe quasi dritte con lieve flessione del ginocchio, busto inclinato in avanti. Estendi i fianchi portando il busto in verticale e contraendo glutei e femorali — come uno stacco ma guidato dal cavo. Abbassa controllando. Ottimo per imparare la cerniera dell'anca. 3 serie × 12 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Alzate frontali al cavo": {
+    weight: 8,
+    description: "In piedi davanti al cavo basso, maniglia singola. Alza il braccio frontalmente fino all'altezza della spalla (o appena sopra) con gomito leggermente flesso. Abbassa lentamente in 3 secondi. Isola il deltoide anteriore. 3 serie × 12 rip per braccio · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Leg extension con accessorio caviglia": {
+    weight: 8,
+    description: "Seduto con cavigliera al cavo basso. Estendi il ginocchio portando la gamba in orizzontale, mantieni 1 secondo, abbassa controllando. 3 serie × 15 rip per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Russian twist al cavo": {
+    weight: 8,
+    description: "Seduto a terra di fianco al cavo (altezza del petto), gambe sollevate o a terra. Con entrambe le mani tira la maniglia e ruota il busto verso il lato opposto. Lento e controllato — è la rotazione del busto che conta, non le braccia. 3 serie × 12 rip per lato · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Upright row al cavo basso": {
+    weight: 10,
+    description: "In piedi davanti al cavo basso, presa stretta o corda. Tira verso il mento alzando i gomiti verso l'alto e verso l'esterno. Non alzare oltre l'altezza delle spalle per proteggere la cuffia dei rotatori. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Deltoidi posteriori in croce ai cavi": {
+    weight: 6,
+    description: "In piedi tra i cavi, inclinato lievemente in avanti. Presa incrociata (mano destra al cavo sinistro e viceversa). Apri le braccia lateralmente verso l'esterno contraendo i deltoidi posteriori. Lento e controllato. 3 serie × 15 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Chest fly (pec deck)": {
+    weight: 15,
+    description: "Seduto alla macchina pec deck con schiena incollata allo schienale, gomiti a 90° sulle ginocchiere. Unisci i gomiti davanti al petto contraendo il petto, torna lentamente all'apertura massima sentendo lo stiramento. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Pulldown braccia tese al cavo alto": {
+    weight: 12,
+    description: "In piedi davanti al cavo alto con barra o corda, braccia quasi tese. Premi verso il basso portando le braccia lungo i fianchi contraendo il gran dorsale. Non flettere i gomiti. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Abduzioni anca al cavo": {
+    weight: 6,
+    description: "In piedi di fianco al cavo basso con cavigliera. Alza la gamba lateralmente verso l'esterno contraendo il gluteo medio. Mantieni il busto fermo, abbassa lentamente. 3 serie × 15 rip per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Shrug al cavo basso": {
+    weight: 20,
+    description: "In piedi davanti al cavo basso, barra o maniglie ai lati. Alzata delle spalle verso le orecchie tenendo le braccia dritte. Mantieni 1 secondo in alto, abbassa lentamente. 3 serie × 15 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
   }
 };
 

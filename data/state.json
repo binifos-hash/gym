@@ -82,29 +82,31 @@
   },
   "weekTemplate": {
     "lunedi": [
-      "Military press manubri seduto su panca",
-      "Alzate laterali manubri seduto",
-      "Panca piana manubri",
-      "French press bilanciere su panca",
-      "Skull crusher bilanciere su panca"
+      "Chest press macchina",
+      "Croci ai cavi bassi",
+      "Shoulder press stazione alta",
+      "Alzate laterali al cavo",
+      "Tricipiti pushdown corda",
+      "Panca piana manubri"
     ],
     "martedi": [],
     "mercoledi": [
       "Lat machine avanti presa larga",
       "Pulley basso presa stretta",
       "Face pull cavo alto",
-      "Curl bilanciere in piedi",
+      "Bicipiti curl al cavo basso dritto",
       "Crunch al cavo alto",
-      "Pallof press al cavo"
+      "Woodchopper alto-basso",
+      "Curl bilanciere in piedi"
     ],
     "giovedi": [],
     "venerdi": [
-      "Goblet squat con manubrio",
-      "Bulgarian split squat con manubri",
-      "Hip thrust bilanciere su panca",
-      "Stacco rumeno bilanciere",
-      "Alzate laterali al cavo",
-      "Bicipiti curl al cavo basso dritto"
+      "Squat al cavo basso",
+      "Hip hinge al cavo basso",
+      "Leg curl in piedi con cavigliera al cavo",
+      "Glute kickback al cavo",
+      "Alzate frontali al cavo",
+      "Bulgarian split squat con manubri"
     ],
     "sabato": [],
     "domenica": []
