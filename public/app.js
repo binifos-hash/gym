@@ -41,6 +41,231 @@ const trainingTypeOptions = [
 const WORKOUT_SYNC_PAST_DAYS = 90;
 const TOORX_DEFAULT_VIDEO = "https://www.youtube.com/embed/wMtmj4TBsKY";
 
+const EXERCISE_DEFAULTS = {
+  // -------- PESI LIBERI --------
+  "Military press manubri seduto su panca": {
+    weight: 6,
+    description: "Seduto su panca con schienale verticale, manubri all'altezza delle spalle con gomiti a 90°. Spingi verso l'alto fino a quasi estendere le braccia convergendo leggermente i manubri. Abbassa lentamente. Mantieni core contratto e schiena incollata allo schienale. 3 serie × 10 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Alzate laterali manubri seduto": {
+    weight: 4,
+    description: "Seduto su panca, manubri lungo i fianchi con palmi verso il corpo. Alza le braccia lateralmente fino all'altezza delle spalle con gomiti leggermente flessi. Abbassa in 3 secondi. Non usare l'inerzia. 3 serie × 12 rip · recupero 60s",
+    videoUrl: ""
+  },
+  "Alzate laterali manubri in piedi": {
+    weight: 4,
+    description: "In piedi gambe parallele, manubri lungo i fianchi. Alza lateralmente fino all'altezza delle spalle, abbassa lentamente. Stai attento a non sollevare le spalle verso le orecchie. 3 serie × 12 rip · recupero 60s",
+    videoUrl: ""
+  },
+  "Panca piana manubri": {
+    weight: 10,
+    description: "Sdraiato su panca, manubri all'altezza del petto con gomiti a 45-60° rispetto al busto. Spingi verso l'alto convergendo i manubri, abbassa lentamente sentendo lo stiramento. Non rimbalzare il peso sul petto. 3 serie × 10 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Panca piana bilanciere": {
+    weight: 20,
+    description: "Sdraiato su panca con bilanciere in rack, presa leggermente più larga delle spalle. Abbassa il bilanciere verso la parte bassa del petto, spingi verso l'alto. Piedi a terra, schiena naturale. 3 serie × 8 rip · recupero 2min",
+    videoUrl: ""
+  },
+  "French press bilanciere su panca": {
+    weight: 8,
+    description: "Sdraiato su panca, bilanciere con presa stretta (più stretta delle spalle) sopra la testa, braccia perpendicolari. Abbassa il bilanciere verso la fronte piegando solo i gomiti, che devono restare fermi. Estendi risalendo. 3 serie × 10 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Skull crusher bilanciere su panca": {
+    weight: 8,
+    description: "Sdraiato su panca, bilanciere con presa stretta sopra la testa. Abbassa il bilanciere verso le corone (nuca/fronte) piegando solo i gomiti. Tieni le braccia perpendicolari al suolo. Estendi risalendo. 3 serie × 10 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Goblet squat con manubrio": {
+    weight: 8,
+    description: "In piedi, gambe leggermente più larghe delle spalle, punte dei piedi leggermente divaricate. Tieni il manubrio verticale davanti al petto con entrambe le mani. Scendi in squat profondo mantenendo il petto alto e le ginocchia verso le punte. Risali espirando. 3 serie × 12 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Bulgarian split squat con manubri": {
+    weight: 6,
+    description: "Piede posteriore appoggiato su una panca, piede anteriore avanzato di un passo lungo. Manubri lungo i fianchi. Scendi abbassando il ginocchio posteriore verso il suolo mantenendo il busto eretto. Il ginocchio anteriore non deve superare la punta del piede. 3 serie × 8 rip per gamba · recupero 2min",
+    videoUrl: ""
+  },
+  "Hip thrust bilanciere su panca": {
+    weight: 10,
+    description: "Schiena appoggiata lateralmente alla panca (bordo sotto le scapole), bilanciere sul bacino protetto da un tappetino. Piedi a terra a larghezza fianchi. Fai scendere il bacino verso il suolo, poi spingi in alto contraendo i glutei al massimo. Mantieni 1 secondo in cima. 3 serie × 12 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Stacco rumeno bilanciere": {
+    weight: 12,
+    description: "In piedi con bilanciere davanti alle cosce (presa prona). Gambe quasi dritte con leggera flessione del ginocchio. Inclina il busto in avanti abbassando il bilanciere lungo le gambe, mantenendo la schiena neutra e il petto alto. Scendi fino a sentire lo stiramento nei femorali (circa sotto le ginocchia). Risali contraendo glutei e femorali. 3 serie × 10 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Curl bilanciere in piedi": {
+    weight: 10,
+    description: "In piedi, bilanciere in presa supinata (palmi verso l'alto) alla larghezza delle spalle. Braccia distese. Fletti i gomiti alzando il bilanciere verso le spalle, tieni i gomiti fermi a contatto con i fianchi. Abbassa lentamente in 3 secondi. 3 serie × 10 rip · recupero 60s",
+    videoUrl: ""
+  },
+  "Curl manubri alternati": {
+    weight: 6,
+    description: "In piedi con manubri lungo i fianchi, esegui il curl alternando un braccio alla volta ruotando il polso verso l'esterno (supinazione) durante la salita. Gomiti fermi ai fianchi. Abbassa lentamente. 3 serie × 10 rip per braccio · recupero 60s",
+    videoUrl: ""
+  },
+  "Affondi in camminata con manubri": {
+    weight: 6,
+    description: "In piedi con manubri lungo i fianchi. Fai un passo avanti ampio e scendi abbassando il ginocchio posteriore vicino al suolo. Spingendo col piede anteriore, porta il piede posteriore avanti per il passo successivo. 3 serie × 10 rip per gamba · recupero 90s",
+    videoUrl: ""
+  },
+  "Estensioni tricipiti manubrio sopra testa": {
+    weight: 6,
+    description: "Seduto su panca, un manubrio sorretto con entrambe le mani sopra la testa, braccia estese. Abbassa il manubrio dietro la nuca piegando i gomiti (che puntano al soffitto), poi estendi risalendo. 3 serie × 12 rip · recupero 60s",
+    videoUrl: ""
+  },
+  // -------- TOORX MSX-50 --------
+  "Lat machine avanti presa larga": {
+    weight: 15,
+    description: "Seduto alla lat machine, coscie bloccate sotto i cuscinetti. Presa larga pronata (più larga delle spalle). Tira la barra verso il petto espandendo il petto e contraendo le scapole verso il basso. Non iperestendere la schiena. Risali controllando. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Lat machine avanti presa stretta": {
+    weight: 15,
+    description: "Come la lat machine presa larga ma con presa alla larghezza delle spalle. Maggiore enfasi sui bicipiti e sulla parte bassa del gran dorsale. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Lat machine presa inversa": {
+    weight: 15,
+    description: "Come la lat machine ma con presa supinata (palmi verso di te). Maggiore attivazione dei bicipiti. Tira verso il petto contraendo la schiena. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Pulley basso presa stretta": {
+    weight: 12,
+    description: "Seduto al pulley basso con schiena dritta e gambe leggermente flesse. Presa con maniglia a V (triangolare). Tira verso l'ombelico mantenendo il busto fermo, stringendo le scapole a fine movimento. Ritorna con controllo estendendo le braccia. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Pulley basso presa larga": {
+    weight: 12,
+    description: "Come il pulley presa stretta ma con barra larga. Tira verso l'addome stringendo le scapole. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Face pull cavo alto": {
+    weight: 10,
+    description: "Al cavo alto con corda. In piedi o seduto, tira la corda verso il viso aprendo le mani verso l'esterno e i gomiti verso l'alto. L'obiettivo è la rotazione esterna delle spalle e l'apertura posteriore. Ottimo per postura e cuffia dei rotatori. 3 serie × 15 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Crunch al cavo alto": {
+    weight: 8,
+    description: "In ginocchio davanti al cavo alto, corda ai lati della testa. Inclinati in avanti flettendo la colonna vertebrale (non solo le also) portando i gomiti verso le cosce. Mantieni la contrazione 1 secondo, ritorna lentamente. 3 serie × 15 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Pallof press al cavo": {
+    weight: 8,
+    description: "In piedi di fianco alla macchina, cavo all'altezza del petto. Con entrambe le mani tieni il manubrio davanti al petto. Spingi le braccia in avanti estendendole completamente, resistendo alla rotazione del busto (esercizio anti-rotazionale). Mantieni 2 secondi, ritorna. 3 serie × 10 rip per lato · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Bicipiti curl al cavo basso dritto": {
+    weight: 10,
+    description: "In piedi davanti al cavo basso con barra diritta in presa supinata. Fletti i gomiti alzando la barra verso le spalle mantenendo i gomiti fermi. Abbassa lentamente in 3 secondi. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Bicipiti curl al cavo basso corda": {
+    weight: 10,
+    description: "Come il curl cavo con barra ma con corda: le mani si aprono alla fine del movimento aumentando la contrazione del bicipite. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Bicipiti curl unilaterale al cavo": {
+    weight: 8,
+    description: "Un braccio alla volta, cavo basso con maniglia singola. Esegui il curl mantenendo il gomito fermo. 3 serie × 10 rip per braccio · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Bicipiti curl al cavo alto": {
+    weight: 8,
+    description: "Braccio esteso verso il cavo alto, maniglia singola. Fletti solo il gomito portando la mano verso la spalla. Ottimo pic contraction per il bicipite. 3 serie × 12 rip per braccio · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Tricipiti pushdown barra": {
+    weight: 12,
+    description: "In piedi davanti al cavo alto con barra diritta o curva, gomiti stretti ai fianchi. Spingi verso il basso estendendo i gomiti, mantieni 1 secondo, risali controllando. Non muovere le spalle. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Tricipiti pushdown corda": {
+    weight: 12,
+    description: "Come il pushdown con barra ma con corda: alla fine del movimento apri le mani verso il basso aumentando la contrazione. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Tricipiti estensioni sopra testa al cavo": {
+    weight: 10,
+    description: "Di spalle al cavo alto con corda, un passo avanti. Mani dietro la nuca, gomiti puntano in avanti. Estendi i gomiti portando la corda avanti/in basso. Ottimo per il capo lungo del tricipite. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Alzate laterali al cavo": {
+    weight: 8,
+    description: "In piedi di fianco al cavo basso, maniglia singola con il braccio lontano dalla macchina. Alza lateralmente fino all'altezza della spalla con gomito leggermente flesso. Abbassa lentamente. 3 serie × 12 rip per braccio · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Alzate frontali al cavo": {
+    weight: 8,
+    description: "In piedi davanti al cavo basso, maniglia singola. Alza il braccio frontalmente fino all'altezza della spalla con gomito leggermente flesso. 3 serie × 12 rip per braccio · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Squat al cavo basso": {
+    weight: 15,
+    description: "Cavo basso con maniglia al centro del petto, un passo indietro dalla macchina. Esegui uno squat profondo mantenendo il peso del cavo come contrappeso che aiuta il bilancio. 3 serie × 12 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Affondi al cavo": {
+    weight: 10,
+    description: "Cavo basso o centrale con maniglia, tieni la maniglia con entrambe le mani davanti al petto. Esegui affondi alternati sul posto. 3 serie × 10 rip per gamba · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Glute kickback al cavo": {
+    weight: 8,
+    description: "Con cavigliera al cavo basso, in quadrupedia o in piedi appoggiato alla macchina. Spingi il tallone verso il soffitto contraendo il gluteo. Mantieni 1 secondo in cima. 3 serie × 15 rip per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Leg curl in piedi con cavigliera al cavo": {
+    weight: 8,
+    description: "In piedi con cavigliera al cavo basso. Appoggiati alla macchina, fletti il ginocchio portando il tallone verso i glutei. Abbassa lentamente. 3 serie × 12 rip per gamba · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Calf raise al cavo": {
+    weight: 10,
+    description: "In piedi sul bordo di un gradino (o piatto), cavo basso con maniglia sulle spalle o una cintura. Solleva i talloni contrando i polpacci. Scendi lentamente sotto il livello del gradino per allungare. 3 serie × 15 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Woodchopper alto-basso": {
+    weight: 10,
+    description: "Cavo alto di fianco. Con braccia quasi tese tira il cavo diagonalmente dall'alto verso il basso dall'esterno verso l'interno (come tagliare la legna). Rotazione del busto, non delle braccia. 3 serie × 12 rip per lato · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Woodchopper basso-alto": {
+    weight: 10,
+    description: "Come il woodchopper ma dal basso verso l'alto. Core anti-rotazionale con rotazione controllata del busto. 3 serie × 12 rip per lato · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Chest press macchina": {
+    weight: 20,
+    description: "Seduto alla chest press con schiena appoggiata al sedile, maniglie all'altezza del petto. Spingi in avanti estendendo le braccia senza bloccare i gomiti. Ritorna controllando. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Croci ai cavi alti": {
+    weight: 8,
+    description: "In piedi tra i due cavi alti, maniglie singole. Parti con le braccia aperte, convergi verso il basso portando le mani davanti al petto (o più in basso). Mantieni gomiti leggermente flessi. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Croci ai cavi bassi": {
+    weight: 8,
+    description: "Come le croci ai cavi alti ma partendo dal basso, convergi verso l'alto in avanti. 3 serie × 12 rip · recupero 60s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Shoulder press stazione alta": {
+    weight: 15,
+    description: "Seduto alla stazione shoulder press, maniglie all'altezza delle spalle. Spingi verso l'alto, abbassa lentamente. 3 serie × 10 rip · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Rematore unilaterale cavo basso": {
+    weight: 12,
+    description: "In piedi o seduto, cavo basso maniglia singola. Tira verso il fianco mantenendo la schiena dritta e la scapola che si avvicina alla colonna. 3 serie × 10 rip per braccio · recupero 90s",
+    videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  }
+};
+
 let state = null;
 let exerciseInfoPanelCurrentName = null;
 let workoutDetailDate = null;
@@ -190,14 +415,16 @@ function isToorxExercise(name) {
 
 function openExerciseInfoPanel(name) {
   exerciseInfoPanelCurrentName = name;
-  const meta = (state.exerciseMeta && state.exerciseMeta[name]) || {};
+  const saved = (state.exerciseMeta && state.exerciseMeta[name]) || {};
+  const defaults = EXERCISE_DEFAULTS[name] || {};
   exerciseInfoTitleEl.textContent = name;
-  exerciseInfoWeightEl.value = meta.weight != null ? meta.weight : "";
-  exerciseInfoDescEl.value = meta.description || "";
+  exerciseInfoWeightEl.value = saved.weight != null ? saved.weight : (defaults.weight != null ? defaults.weight : "");
+  exerciseInfoDescEl.value = saved.description != null ? saved.description : (defaults.description || "");
 
-  // If no saved URL but it's a toorx exercise, use default video
-  const savedUrl = meta.videoUrl || "";
-  const displayUrl = savedUrl || (isToorxExercise(name) ? "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y" : "");
+  // Video URL: saved > defaults > toorx fallback
+  const savedUrl = saved.videoUrl != null ? saved.videoUrl : null;
+  const defaultUrl = defaults.videoUrl || (isToorxExercise(name) ? "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y" : "");
+  const displayUrl = savedUrl !== null ? savedUrl : defaultUrl;
   exerciseInfoVideoUrlEl.value = displayUrl;
   updateExerciseInfoVideo(displayUrl);
   exerciseInfoPanelEl.classList.remove("hidden");
@@ -1191,8 +1418,9 @@ function renderWorkoutDetail() {
   const showCheckbox = session.status === "in_progress" || session.status === "paused";
 
   session.exercises.forEach((exercise, index) => {
-    const row = document.createElement("label");
+    const row = document.createElement("div");
     row.className = `exercise-line ${exercise.completed ? "exercise-line-done" : ""}`;
+    row.style.cursor = "pointer";
 
     const point = document.createElement("span");
     point.className = "exercise-line-point";
@@ -1233,22 +1461,20 @@ function renderWorkoutDetail() {
     content.appendChild(title);
     content.appendChild(meta);
 
-    const infoBtn = document.createElement("button");
-    infoBtn.type = "button";
-    infoBtn.className = "exercise-info-btn";
-    infoBtn.title = "Dettagli esercizio";
-    infoBtn.textContent = "ⓘ";
-    infoBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openExerciseInfoPanel(exercise.name);
-    });
-
     row.appendChild(point);
     row.appendChild(checkbox);
     row.appendChild(content);
-    row.appendChild(infoBtn);
     timeline.appendChild(row);
+
+    // Click on content area opens exercise detail panel
+    content.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openExerciseInfoPanel(exercise.name);
+    });
+    point.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openExerciseInfoPanel(exercise.name);
+    });
   });
 
   workoutExerciseListEl.appendChild(timeline);

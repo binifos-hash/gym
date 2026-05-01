@@ -82,50 +82,40 @@
   },
   "weekTemplate": {
     "lunedi": [
-      "Panca piana bilanciere",
-      "Rematore bilanciere busto flesso",
-      "Tricipiti pushdown corda",
-      "Crunch al cavo alto"
+      "Military press manubri seduto su panca",
+      "Alzate laterali manubri seduto",
+      "Panca piana manubri",
+      "French press bilanciere su panca",
+      "Skull crusher bilanciere su panca"
     ],
-    "martedi": [
-      "Squat al cavo basso",
-      "Affondi al cavo",
-      "Stacco rumeno bilanciere",
-      "Calf raise al cavo"
-    ],
+    "martedi": [],
     "mercoledi": [
       "Lat machine avanti presa larga",
       "Pulley basso presa stretta",
+      "Face pull cavo alto",
       "Curl bilanciere in piedi",
-      "Face pull cavo alto"
-    ],
-    "giovedi": [
-      "Chest press macchina",
-      "Croci manubri su panca piana",
-      "Shoulder press stazione alta",
-      "Alzate laterali al cavo"
-    ],
-    "venerdi": [
-      "Hip thrust bilanciere su panca",
-      "Bulgarian split squat con manubri",
-      "Leg curl in piedi con cavigliera al cavo",
+      "Crunch al cavo alto",
       "Pallof press al cavo"
     ],
-    "sabato": [
-      "Military press manubri seduto su panca",
-      "Pulldown braccia tese al cavo alto",
-      "Bicipiti curl al cavo basso corda",
-      "Tricipiti estensioni sopra testa al cavo"
+    "giovedi": [],
+    "venerdi": [
+      "Goblet squat con manubrio",
+      "Bulgarian split squat con manubri",
+      "Hip thrust bilanciere su panca",
+      "Stacco rumeno bilanciere",
+      "Alzate laterali al cavo",
+      "Bicipiti curl al cavo basso dritto"
     ],
+    "sabato": [],
     "domenica": []
   },
   "weekTemplateTypes": {
     "lunedi": "Spinta",
-    "martedi": "Gambe",
+    "martedi": null,
     "mercoledi": "Trazione",
-    "giovedi": "Spinta",
+    "giovedi": null,
     "venerdi": "Gambe",
-    "sabato": "Full Body",
+    "sabato": null,
     "domenica": null
   },
   "progress": {},

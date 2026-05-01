@@ -475,10 +475,11 @@ h3 {
 .exercise-line {
   position: relative;
   display: grid;
-  grid-template-columns: 22px 22px 1fr auto;
+  grid-template-columns: 22px 22px 1fr;
   align-items: center;
   gap: 14px;
   min-height: 54px;
+  cursor: pointer;
 }
 
 .exercise-line-point {
