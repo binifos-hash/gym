@@ -291,6 +291,19 @@ h3 {
   padding: 5px 10px;
 }
 
+.day-card-today {
+  border-color: rgba(232, 255, 71, 0.55);
+  box-shadow: 0 0 0 1px rgba(232, 255, 71, 0.18), 0 4px 18px rgba(232, 255, 71, 0.08);
+}
+
+.day-card-today .day-num {
+  color: var(--accent);
+}
+
+.day-card-today .day-title {
+  color: var(--accent);
+}
+
 /* day-preview removed */
 
 .day-card-done {

@@ -610,7 +610,7 @@ function renderWeekCards() {
 
     const card = document.createElement("button");
     card.type = "button";
-    card.className = `day-card day-card-${visualStatus}`;
+    card.className = `day-card day-card-${visualStatus}${dateKey === getTodayKey() ? " day-card-today" : ""}`;
     card.disabled = isRest;
     if (!isRest) {
       card.addEventListener("click", () => openWorkoutDetail(dateKey));
