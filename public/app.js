@@ -1566,7 +1566,12 @@ async function init() {
   if (navIndicator) navIndicator.style.transition = "none";
   setActiveTab("tab-week");
   requestAnimationFrame(() => {
-    if (navIndicator) navIndicator.style.transition = "";
+    requestAnimationFrame(() => {
+      if (navIndicator) {
+        navIndicator.style.transition = "";
+        navIndicator.style.opacity = "1";
+      }
+    });
   });
 }
 
