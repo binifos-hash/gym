@@ -651,7 +651,9 @@ function renderWeekCards() {
 
     const categoryLabel = document.createElement("div");
     categoryLabel.className = "day-category";
-    const sessionType = session && session.trainingType;
+    const sessionType = (session && session.trainingType)
+      || (state.weekTemplateTypes && state.weekTemplateTypes[day])
+      || null;
     if (sessionType) {
       categoryLabel.textContent = sessionType;
       categoryLabel.dataset.type = sessionType.toLowerCase().replace(/\s+/g, "-");
