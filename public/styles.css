@@ -104,8 +104,16 @@ h2 {
 
 h3 {
   font-size: 16px;
-  color: var(--accent2);
+  color: rgba(255, 255, 255, 0.78);
   margin-bottom: 8px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid rgba(232, 255, 71, 0.55);
+  outline-offset: 0;
+  border-color: rgba(232, 255, 71, 0.45) !important;
 }
 
 .attrezzatura {
@@ -192,6 +200,12 @@ h3 {
   width: 100%;
   text-align: left;
   cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.day-card:not(:disabled):hover {
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
 
 .day-card:disabled {
@@ -452,6 +466,8 @@ h3 {
 .workout-diary-save:hover {
   border-color: rgba(255,255,255,0.3);
 }
+
+.workout-planned-note {
   color: var(--muted);
   font-size: 12px;
   padding: 12px 14px;
@@ -512,6 +528,13 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 16px;
+  transition: border-color 0.18s, background 0.18s;
+  cursor: pointer;
+}
+
+.exercise-line-content:hover {
+  border-color: rgba(232, 255, 71, 0.28);
+  background: #252525;
 }
 
 .exercise-line-title {
@@ -1102,10 +1125,14 @@ textarea {
 }
 
 .exercise-info-sets-display {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  background: rgba(232, 255, 71, 0.06);
+  border: 1px solid rgba(232, 255, 71, 0.14);
+  border-radius: 12px;
+  padding: 8px 14px;
 }
 
 .exercise-info-sets-num {
