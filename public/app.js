@@ -98,6 +98,15 @@ const diaryListEl = document.getElementById("diaryList");
 const navButtons = [...document.querySelectorAll(".nav-btn")];
 const tabPanels = [...document.querySelectorAll(".tab-panel")];
 const mainHeaderEl = document.querySelector(".main-header");
+const navIndicator = document.querySelector(".nav-indicator");
+
+function moveNavIndicator(btn) {
+  if (!navIndicator || !btn) return;
+  const navPad = 8;
+  const dx = btn.offsetLeft - navPad;
+  navIndicator.style.width = btn.offsetWidth + "px";
+  navIndicator.style.transform = `translateX(${dx}px)`;
+}
 
 function getMonday(date = new Date()) {
   const d = new Date(date);
@@ -1401,6 +1410,7 @@ function setActiveTab(tabId) {
 
   navButtons.forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tabId);
+    if (btn.dataset.tab === tabId) moveNavIndicator(btn);
   });
 
   if (mainHeaderEl) {
@@ -1552,7 +1562,12 @@ async function init() {
   renderCalendar();
   renderPersonal();
   bindEvents();
+  // Position the nav indicator instantly on first load (no animation)
+  if (navIndicator) navIndicator.style.transition = "none";
   setActiveTab("tab-week");
+  requestAnimationFrame(() => {
+    if (navIndicator) navIndicator.style.transition = "";
+  });
 }
 
 init();
