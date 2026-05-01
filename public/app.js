@@ -638,12 +638,20 @@ function renderWeekCards() {
     title.className = "day-title";
     title.textContent = dayLabels[day];
 
-    const focus = document.createElement("div");
-    focus.className = "day-focus";
-    focus.textContent = getSessionCategorySummary(session);
+    const tagsRow = document.createElement("div");
+    tagsRow.className = "day-tags";
+    const uniqueTypes = session && session.exercises.length
+      ? [...new Set(session.exercises.map((e) => e.trainingType).filter(Boolean))]
+      : [];
+    uniqueTypes.forEach((type) => {
+      const tag = document.createElement("span");
+      tag.className = `day-tag day-tag-${type.toLowerCase().replace(/\s+/g, "-")}`;
+      tag.textContent = type;
+      tagsRow.appendChild(tag);
+    });
 
     dayInfo.appendChild(title);
-    dayInfo.appendChild(focus);
+    dayInfo.appendChild(tagsRow);
     dayLeft.appendChild(dayNum);
     dayLeft.appendChild(dayInfo);
 
@@ -665,14 +673,6 @@ function renderWeekCards() {
     head.appendChild(dayLeft);
     head.appendChild(right);
     card.appendChild(head);
-
-    if (!isRest) {
-      const preview = document.createElement("div");
-      preview.className = "day-preview";
-      const previewNames = exercises.slice(0, 3).map((exercise) => exercise.name).join(" · ");
-      preview.textContent = previewNames;
-      card.appendChild(preview);
-    }
 
     weekContainerEl.appendChild(card);
   });
