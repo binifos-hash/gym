@@ -34,6 +34,10 @@ function ensureStateShape(state) {
     state.weekTemplate = {};
   }
 
+  if (!state.weekTemplateTypes || typeof state.weekTemplateTypes !== "object") {
+    state.weekTemplateTypes = {};
+  }
+
   if (!state.progress || typeof state.progress !== "object") {
     state.progress = {};
   }
@@ -128,7 +132,7 @@ app.get("/api/state", (req, res) => {
 
 app.put("/api/week-template", (req, res) => {
   try {
-    const { weekTemplate } = req.body;
+    const { weekTemplate, weekTemplateTypes } = req.body;
 
     if (!isValidWeekTemplate(weekTemplate)) {
       return res.status(400).json({ error: "Formato weekTemplate non valido" });
@@ -136,9 +140,12 @@ app.put("/api/week-template", (req, res) => {
 
     const state = readState();
     state.weekTemplate = weekTemplate;
+    if (weekTemplateTypes && typeof weekTemplateTypes === "object") {
+      state.weekTemplateTypes = weekTemplateTypes;
+    }
     writeState(state);
 
-    return res.json({ ok: true, weekTemplate: state.weekTemplate });
+    return res.json({ ok: true, weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio settimana" });
   }

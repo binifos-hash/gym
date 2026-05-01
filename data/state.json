@@ -119,6 +119,15 @@
     ],
     "domenica": []
   },
+  "weekTemplateTypes": {
+    "lunedi": "Spinta",
+    "martedi": "Gambe",
+    "mercoledi": "Trazione",
+    "giovedi": "Spinta",
+    "venerdi": "Gambe",
+    "sabato": "Full Body",
+    "domenica": null
+  },
   "progress": {},
   "personal": {
     "profileName": "Paolo Bini",

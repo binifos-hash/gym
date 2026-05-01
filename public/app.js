@@ -53,7 +53,7 @@ const weekOverviewEl = document.getElementById("weekOverview");
 const freeWeightListEl = document.getElementById("freeWeightList");
 const toorxListEl = document.getElementById("toorxList");
 const editorDaySelectEl = document.getElementById("editorDaySelect");
-const editorTypeFilterEl = document.getElementById("editorTypeFilter");
+const editorDayTypeSelectEl = document.getElementById("editorDayTypeSelect");
 const editorSearchEl = document.getElementById("editorSearch");
 const libraryPickerEl = document.getElementById("libraryPicker");
 const dayExerciseListEl = document.getElementById("dayExerciseList");
@@ -312,6 +312,7 @@ function normalizeWorkoutSession(session, dateKey) {
   return {
     date: resolvedDate,
     day,
+    trainingType: session.trainingType || null,
     status,
     exercises: normalizedExercises,
     durationSeconds: Number.isFinite(session.durationSeconds) ? session.durationSeconds : 0,
@@ -342,9 +343,11 @@ function getTemplateExercisesForDate(dateKey) {
 }
 
 function createWorkoutSession(dateKey, exercises) {
+  const day = getDayFromDate(dateFromIso(dateKey));
   return {
     date: dateKey,
-    day: getDayFromDate(dateFromIso(dateKey)),
+    day,
+    trainingType: (state.weekTemplateTypes && state.weekTemplateTypes[day]) || null,
     status: dateKey < getTodayKey() ? "missed" : "planned",
     exercises: cloneExercisesForSession(exercises),
     durationSeconds: 0,
@@ -403,7 +406,8 @@ function syncWorkoutSessionsRange() {
     const nextSnapshot = createWorkoutSession(dateKey, templateExercises);
     const currentComparable = JSON.stringify(existing.exercises.map(({ completed, ...exercise }) => exercise));
     const nextComparable = JSON.stringify(nextSnapshot.exercises.map(({ completed, ...exercise }) => exercise));
-    if (currentComparable !== nextComparable || existing.status !== "planned") {
+    const typeChanged = existing.trainingType !== nextSnapshot.trainingType;
+    if (currentComparable !== nextComparable || existing.status !== "planned" || typeChanged) {
       state.workoutSessions[dateKey] = {
         ...nextSnapshot,
         status: "planned"
@@ -494,6 +498,12 @@ function getSessionCategorySummary(session) {
   return `${uniqueTypes.slice(0, 2).join(" · ")} +${uniqueTypes.length - 2}`;
 }
 
+function ensureWeekTemplateTypes() {
+  if (!state.weekTemplateTypes || typeof state.weekTemplateTypes !== "object") {
+    state.weekTemplateTypes = {};
+  }
+}
+
 function ensurePersonalDefaults() {
   if (!state.personal || typeof state.personal !== "object") {
     state.personal = {};
@@ -516,6 +526,7 @@ async function loadState() {
   const res = await fetch("/api/state");
   state = await res.json();
   ensurePersonalDefaults();
+  ensureWeekTemplateTypes();
   normalizeWeekTemplate();
   normalizeWorkoutSessions();
 }
@@ -524,7 +535,7 @@ async function saveWeekTemplate() {
   const res = await fetch("/api/week-template", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ weekTemplate: state.weekTemplate })
+    body: JSON.stringify({ weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes })
   });
 
   if (!res.ok) {
@@ -640,16 +651,14 @@ function renderWeekCards() {
 
     const categoryLabel = document.createElement("div");
     categoryLabel.className = "day-category";
-    const uniqueTypes = session && session.exercises.length
-      ? [...new Set(session.exercises.map((e) => e.trainingType).filter(Boolean))]
-      : [];
-    if (uniqueTypes.length) {
-      categoryLabel.textContent = uniqueTypes.join(" · ");
-      categoryLabel.dataset.type = uniqueTypes[0].toLowerCase().replace(/\s+/g, "-");
+    const sessionType = session && session.trainingType;
+    if (sessionType) {
+      categoryLabel.textContent = sessionType;
+      categoryLabel.dataset.type = sessionType.toLowerCase().replace(/\s+/g, "-");
     }
 
     dayInfo.appendChild(title);
-    if (uniqueTypes.length) dayInfo.appendChild(categoryLabel);
+    if (sessionType) dayInfo.appendChild(categoryLabel);
     dayLeft.appendChild(dayNum);
     dayLeft.appendChild(dayInfo);
 
@@ -706,7 +715,9 @@ function renderEditor() {
   state.weekTemplate[currentDay] = plannedExercises;
   const daySet = new Set(plannedExercises.map((exercise) => exercise.name));
   const allExercises = getAllExercises();
-  const selectedType = editorTypeFilterEl ? editorTypeFilterEl.value : "all";
+  const currentDayType = (state.weekTemplateTypes && state.weekTemplateTypes[currentDay]) || "";
+  if (editorDayTypeSelectEl) editorDayTypeSelectEl.value = currentDayType;
+  const selectedType = currentDayType || "all";
   const searchText = editorSearchEl ? editorSearchEl.value.trim().toLowerCase() : "";
 
   const filteredExercises = allExercises.filter((exercise) => {
@@ -785,27 +796,6 @@ function renderEditor() {
 
     const controls = document.createElement("div");
     controls.className = "day-ex-controls";
-
-    const typeSelect = document.createElement("select");
-    trainingTypeOptions.forEach((type) => {
-      const option = document.createElement("option");
-      option.value = type;
-      option.textContent = type;
-      option.selected = exercise.trainingType === type;
-      typeSelect.appendChild(option);
-    });
-
-    typeSelect.addEventListener("change", () => {
-      exercise.trainingType = typeSelect.value;
-      syncWorkoutSessionsRange();
-      renderWeekCards();
-      renderCalendar();
-      if (workoutDetailDate) {
-        renderWorkoutDetail();
-      }
-    });
-
-    controls.appendChild(typeSelect);
 
     if (exercise.supportsWeight) {
       const weightInput = document.createElement("input");
@@ -1440,8 +1430,15 @@ function bindEvents() {
 
   editorDaySelectEl.addEventListener("change", renderEditor);
 
-  if (editorTypeFilterEl) {
-    editorTypeFilterEl.addEventListener("change", renderEditor);
+  if (editorDayTypeSelectEl) {
+    editorDayTypeSelectEl.addEventListener("change", () => {
+      const currentDay = editorDaySelectEl.value || days[0];
+      if (!state.weekTemplateTypes) state.weekTemplateTypes = {};
+      state.weekTemplateTypes[currentDay] = editorDayTypeSelectEl.value || null;
+      syncWorkoutSessionsRange();
+      renderEditor();
+      renderWeekCards();
+    });
   }
 
   if (editorSearchEl) {
