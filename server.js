@@ -9,9 +9,28 @@ const DATA_FILE = path.join(__dirname, "data", "state.json");
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function readState() {
   const raw = fs.readFileSync(DATA_FILE, "utf8");
-  return ensureStateShape(JSON.parse(raw));
+  const state = ensureStateShape(JSON.parse(raw));
+
+  // Clean up sessions that should never be persisted
+  const todayKey = getTodayKey();
+  let dirty = false;
+  Object.keys(state.workoutSessions).forEach((key) => {
+    const s = state.workoutSessions[key];
+    if (s.status === "planned" || (s.status === "missed" && key < todayKey)) {
+      delete state.workoutSessions[key];
+      dirty = true;
+    }
+  });
+  if (dirty) writeState(state);
+
+  return state;
 }
 
 function writeState(state) {
