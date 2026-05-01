@@ -39,7 +39,6 @@ const trainingTypeOptions = [
 ];
 
 const WORKOUT_SYNC_PAST_DAYS = 90;
-const WORKOUT_SYNC_FUTURE_DAYS = 180;
 
 let state = null;
 let workoutDetailDate = null;
@@ -356,6 +355,16 @@ function createWorkoutSession(dateKey, exercises) {
   };
 }
 
+// Returns a session from state if it exists, otherwise builds a virtual planned one from template.
+// Virtual sessions are NOT stored in state — they are computed on the fly.
+function getOrBuildSession(dateKey) {
+  const existing = state.workoutSessions[dateKey];
+  if (existing) return existing;
+  const templateExercises = getTemplateExercisesForDate(dateKey);
+  if (!templateExercises.length) return null;
+  return createWorkoutSession(dateKey, templateExercises);
+}
+
 function syncWorkoutSessionsRange() {
   normalizeWorkoutSessions();
 
@@ -364,56 +373,20 @@ function syncWorkoutSessionsRange() {
   today.setHours(0, 0, 0, 0);
   const todayKey = formatIsoDate(today);
 
-  for (let offset = -WORKOUT_SYNC_PAST_DAYS; offset <= WORKOUT_SYNC_FUTURE_DAYS; offset += 1) {
+  // Only iterate past days: mark missed, handle in_progress/paused left over
+  for (let offset = -WORKOUT_SYNC_PAST_DAYS; offset < 0; offset += 1) {
     const date = new Date(today);
     date.setDate(today.getDate() + offset);
     const dateKey = formatIsoDate(date);
-    const templateExercises = getTemplateExercisesForDate(dateKey);
     const existing = state.workoutSessions[dateKey];
 
-    if (!existing) {
-      if (templateExercises.length) {
-        state.workoutSessions[dateKey] = createWorkoutSession(dateKey, templateExercises);
-        changed = true;
-      }
-      continue;
-    }
+    if (!existing) continue;
+    if (existing.status === "completed" || existing.status === "missed") continue;
 
-    if (existing.status === "completed") {
-      continue;
-    }
-
-    if (dateKey < todayKey) {
-      if (existing.status !== "missed") {
-        existing.durationSeconds = getSessionElapsedSeconds(existing);
-        existing.activeStartedAt = null;
-        existing.status = "missed";
-        changed = true;
-      }
-      continue;
-    }
-
-    if (existing.status === "in_progress" || existing.status === "paused") {
-      continue;
-    }
-
-    if (!templateExercises.length) {
-      delete state.workoutSessions[dateKey];
-      changed = true;
-      continue;
-    }
-
-    const nextSnapshot = createWorkoutSession(dateKey, templateExercises);
-    const currentComparable = JSON.stringify(existing.exercises.map(({ completed, ...exercise }) => exercise));
-    const nextComparable = JSON.stringify(nextSnapshot.exercises.map(({ completed, ...exercise }) => exercise));
-    const typeChanged = existing.trainingType !== nextSnapshot.trainingType;
-    if (currentComparable !== nextComparable || existing.status !== "planned" || typeChanged) {
-      state.workoutSessions[dateKey] = {
-        ...nextSnapshot,
-        status: "planned"
-      };
-      changed = true;
-    }
+    existing.durationSeconds = getSessionElapsedSeconds(existing);
+    existing.activeStartedAt = null;
+    existing.status = "missed";
+    changed = true;
   }
 
   return changed;
@@ -529,6 +502,12 @@ async function loadState() {
   ensureWeekTemplateTypes();
   normalizeWeekTemplate();
   normalizeWorkoutSessions();
+  // Remove stale planned sessions — they are always computed on the fly
+  Object.keys(state.workoutSessions).forEach((key) => {
+    if (state.workoutSessions[key].status === "planned") {
+      delete state.workoutSessions[key];
+    }
+  });
 }
 
 async function saveWeekTemplate() {
@@ -550,10 +529,14 @@ async function saveWeekTemplate() {
 }
 
 async function saveWorkoutSessions() {
+  // Never persist planned sessions — they are computed on the fly from the template
+  const toSave = Object.fromEntries(
+    Object.entries(state.workoutSessions).filter(([, s]) => s.status !== "planned")
+  );
   const res = await fetch("/api/workout-sessions", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workoutSessions: state.workoutSessions })
+    body: JSON.stringify({ workoutSessions: toSave })
   });
 
   if (!res.ok) {
@@ -620,7 +603,7 @@ function renderWeekCards() {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
     const dateKey = formatIsoDate(date);
-    const session = state.workoutSessions[dateKey];
+    const session = getOrBuildSession(dateKey);
     const exercises = session ? session.exercises : [];
     const visualStatus = getSessionVisualStatus(session, dateKey);
     const isRest = !session || !exercises.length;
@@ -870,10 +853,14 @@ function renderEditor() {
 }
 
 function openWorkoutDetail(dateKey) {
-  const session = state.workoutSessions[dateKey];
-  if (!session || !session.exercises.length) {
-    return;
+  // Ensure the session exists in state (needed to start/interact with it)
+  if (!state.workoutSessions[dateKey]) {
+    const built = getOrBuildSession(dateKey);
+    if (!built || !built.exercises.length) return;
+    state.workoutSessions[dateKey] = built;
   }
+  const session = state.workoutSessions[dateKey];
+  if (!session || !session.exercises.length) return;
 
   workoutDetailDate = dateKey;
   renderWorkoutDetail();
@@ -1124,7 +1111,7 @@ function renderCalendar() {
     const date = new Date(gridStart);
     date.setDate(gridStart.getDate() + index);
     const dateKey = formatIsoDate(date);
-    const session = state.workoutSessions[dateKey];
+    const session = getOrBuildSession(dateKey);
     const visualStatus = getSessionVisualStatus(session, dateKey);
     const cell = document.createElement("button");
     cell.type = "button";
