@@ -233,10 +233,27 @@ app.put("/api/workout-sessions", (req, res) => {
   }
 });
 
+app.get("/api/cleanup", (req, res) => {
+  try {
+    const state = readState(); // readState already cleans and rewrites
+    const sessions = Object.keys(state.workoutSessions).length;
+    return res.json({ ok: true, sessionsRemaining: sessions });
+  } catch (error) {
+    return res.status(500).json({ error: "Errore cleanup" });
+  }
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {
   console.log(`Gym app in ascolto su http://localhost:${PORT}`);
+  // Run cleanup on startup so stale sessions are removed immediately on deploy
+  try {
+    readState();
+    console.log("Cleanup sessioni completato all'avvio.");
+  } catch (e) {
+    console.error("Errore cleanup avvio:", e);
+  }
 });
