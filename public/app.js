@@ -1098,6 +1098,9 @@ function renderWorkoutDetail() {
     const row = document.createElement("label");
     row.className = `exercise-line ${exercise.completed ? "exercise-line-done" : ""}`;
 
+    const point = document.createElement("span");
+    point.className = "exercise-line-point";
+
     let checkbox = null;
     if (showCheckbox) {
       checkbox = document.createElement("input");
@@ -1134,6 +1137,7 @@ function renderWorkoutDetail() {
     content.appendChild(title);
     content.appendChild(meta);
 
+    row.appendChild(point);
     row.appendChild(checkbox);
     row.appendChild(content);
     timeline.appendChild(row);
