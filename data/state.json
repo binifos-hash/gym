@@ -86,14 +86,14 @@
       "Incline Press",
       "Butterfly",
       "Seated Front Raise",
-      "Overhead Triceps Extension",
-      "Panca piana manubri"
+      "Triceps Extension",
+      "Alzate laterali manubri seduto"
     ],
     "martedi": [],
     "mercoledi": [
       "Lat Machine",
+      "Lat Machine Inverse",
       "Rowing",
-      "Stand Mid Row",
       "Biceps Curl",
       "Arm Curl",
       "Curl bilanciere in piedi"
@@ -104,8 +104,8 @@
       "Leg Extension",
       "Standing Leg Curl",
       "Hip Abduction",
-      "Lateral Leg Raise",
-      "Glute Kick Back"
+      "Glute Kick Back",
+      "Bulgarian split squat con manubri"
     ],
     "sabato": [],
     "domenica": []

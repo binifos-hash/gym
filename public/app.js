@@ -504,6 +504,9 @@ const exerciseInfoVideoWrapEl = document.getElementById("exerciseInfoVideoWrap")
 const exerciseInfoVideoEl = document.getElementById("exerciseInfoVideo");
 const saveExerciseInfoBtnEl = document.getElementById("saveExerciseInfoBtn");
 const closeExerciseInfoBtnEl = document.getElementById("closeExerciseInfoBtn");
+const exerciseInfoSetsValEl = document.getElementById("exerciseInfoSetsVal");
+const exerciseInfoRepsValEl = document.getElementById("exerciseInfoRepsVal");
+const exerciseInfoSetsWrapEl = document.getElementById("exerciseInfoSetsWrap");
 
 function moveNavIndicator(btn) {
   if (!navIndicator || !btn) return;
@@ -574,13 +577,34 @@ function isToorxExercise(name) {
     state.exerciseLibrary.toorx_msx50.includes(name);
 }
 
-function openExerciseInfoPanel(name) {
+function openExerciseInfoPanel(name, sets, reps) {
   exerciseInfoPanelCurrentName = name;
   const saved = (state.exerciseMeta && state.exerciseMeta[name]) || {};
   const defaults = EXERCISE_DEFAULTS[name] || {};
   exerciseInfoTitleEl.textContent = name;
   exerciseInfoWeightEl.value = saved.weight != null ? saved.weight : (defaults.weight != null ? defaults.weight : "");
   exerciseInfoDescEl.value = saved.description != null ? saved.description : (defaults.description || "");
+
+  // Sets × Reps — look up from session/template if not passed directly
+  let resolvedSets = sets;
+  let resolvedReps = reps;
+  if (resolvedSets == null || resolvedReps == null) {
+    // Try to find in current session
+    if (workoutDetailDate && state.workoutSessions[workoutDetailDate]) {
+      const ex = state.workoutSessions[workoutDetailDate].exercises.find((e) => e.name === name);
+      if (ex) { resolvedSets = ex.sets; resolvedReps = ex.reps; }
+    }
+    // Fallback: check weekTemplate for any day that has this exercise
+    if (resolvedSets == null) {
+      for (const day of Object.values(state.weekTemplate || {})) {
+        const ex = (Array.isArray(day) ? day : []).find((e) => (typeof e === "string" ? e : e.name) === name);
+        if (ex && typeof ex === "object") { resolvedSets = ex.sets; resolvedReps = ex.reps; break; }
+      }
+    }
+  }
+  if (exerciseInfoSetsValEl) exerciseInfoSetsValEl.textContent = resolvedSets != null ? resolvedSets : 3;
+  if (exerciseInfoRepsValEl) exerciseInfoRepsValEl.textContent = resolvedReps != null ? resolvedReps : 10;
+  if (exerciseInfoSetsWrapEl) exerciseInfoSetsWrapEl.classList.toggle("hidden", false);
 
   // Video URL: saved > defaults > toorx fallback
   const savedUrl = saved.videoUrl != null ? saved.videoUrl : null;
@@ -1664,11 +1688,11 @@ function renderWorkoutDetail() {
     // Click on content area opens exercise detail panel
     content.addEventListener("click", (e) => {
       e.stopPropagation();
-      openExerciseInfoPanel(exercise.name);
+      openExerciseInfoPanel(exercise.name, exercise.sets, exercise.reps);
     });
     point.addEventListener("click", (e) => {
       e.stopPropagation();
-      openExerciseInfoPanel(exercise.name);
+      openExerciseInfoPanel(exercise.name, exercise.sets, exercise.reps);
     });
   });
 
