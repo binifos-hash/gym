@@ -504,9 +504,10 @@ async function loadState() {
   normalizeWorkoutSessions();
   // Remove stale planned sessions — they are always computed on the fly
   Object.keys(state.workoutSessions).forEach((key) => {
-    if (state.workoutSessions[key].status === "planned") {
-      delete state.workoutSessions[key];
-    }
+    const s = state.workoutSessions[key];
+    if (s.status === "planned") delete state.workoutSessions[key];
+    // Drop missed sessions older than today — no value in keeping them
+    if (s.status === "missed" && key < getTodayKey()) delete state.workoutSessions[key];
   });
 }
 
