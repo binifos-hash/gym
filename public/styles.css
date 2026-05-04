@@ -7,6 +7,8 @@
   --text: #f0f0f0;
   --muted: #888;
   --border: #2a2a2a;
+  --bottom-nav-offset: 12px;
+  --bottom-nav-height: 60px;
 }
 
 * {
@@ -21,7 +23,7 @@ body {
   font-family: "DM Sans", sans-serif;
   min-height: 100vh;
   width: 100%;
-  padding: 20px 16px 100px;
+  padding: 20px 16px calc(var(--bottom-nav-offset) + var(--bottom-nav-height) + 56px + env(safe-area-inset-bottom));
   background-image: radial-gradient(ellipse at 20% 10%, #1a2a00 0%, transparent 50%),
     radial-gradient(ellipse at 80% 90%, #1a0a00 0%, transparent 50%);
   overflow-x: hidden;
@@ -72,6 +74,7 @@ body {
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;
+  padding-bottom: 12px;
 }
 
 .tab-panel {
@@ -337,6 +340,7 @@ select:focus {
 .workout-detail {
   display: grid;
   gap: 18px;
+  padding-bottom: 8px;
 }
 
 .back-btn {
@@ -480,6 +484,7 @@ select:focus {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 22px;
+  margin-bottom: 8px;
 }
 
 .exercise-timeline {
@@ -1486,10 +1491,10 @@ textarea {
 /* ── Mini pill del rest timer ───────────────────────────────── */
 .rest-timer-mini {
   position: fixed;
-  bottom: 74px; /* sopra la bottom nav */
+  bottom: calc(var(--bottom-nav-offset) + var(--bottom-nav-height) + 20px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 99;
+  z-index: 120;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1534,14 +1539,6 @@ textarea {
   line-height: 1;
   min-width: 48px;
   text-align: center;
-}
-
-.rest-timer-mini-hint {
-  font-size: 10px;
-  color: rgba(74, 222, 128, 0.55);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  white-space: nowrap;
 }
 
 /* ── Rest input in editor ────────────────────────────────────── */
@@ -1635,7 +1632,7 @@ textarea {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 12px;
+  bottom: calc(var(--bottom-nav-offset) + env(safe-area-inset-bottom));
   width: min(520px, calc(100% - 24px));
   background: rgba(18, 18, 18, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1648,6 +1645,7 @@ textarea {
   -webkit-backdrop-filter: blur(28px) saturate(1.8);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   isolation: isolate;
+  z-index: 90;
 }
 
 .nav-indicator {
