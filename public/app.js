@@ -434,6 +434,7 @@ let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
 let restTimerIntervalId = null;
 let restTimerRemaining = 0;
+let restTimerMinimized = false;
 
 const weekContainerEl = document.getElementById("weekContainer");
 const weekOverviewEl = document.getElementById("weekOverview");
@@ -2247,16 +2248,26 @@ function showRestTimer(seconds) {
   const overlay = document.getElementById("restTimerOverlay");
   const display = document.getElementById("restTimerDisplay");
   const skipBtn = document.getElementById("restTimerSkip");
+  const minimizeBtn = document.getElementById("restTimerMinimize");
+  const mini = document.getElementById("restTimerMini");
+  const miniDisplay = document.getElementById("restTimerMiniDisplay");
 
   if (!overlay || !display || !skipBtn) return;
 
   clearInterval(restTimerIntervalId);
   restTimerRemaining = seconds;
+  restTimerMinimized = false;
+
+  function formatTime(s) {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
 
   function tick() {
-    const mins = Math.floor(restTimerRemaining / 60);
-    const secs = restTimerRemaining % 60;
-    display.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    const formatted = formatTime(restTimerRemaining);
+    display.textContent = formatted;
+    if (miniDisplay) miniDisplay.textContent = formatted;
     if (restTimerRemaining <= 0) {
       hideRestTimer();
     } else {
@@ -2266,16 +2277,39 @@ function showRestTimer(seconds) {
 
   tick();
   overlay.classList.remove("hidden");
+  if (mini) mini.classList.add("hidden");
   restTimerIntervalId = setInterval(tick, 1000);
 
   skipBtn.onclick = hideRestTimer;
+
+  if (minimizeBtn) {
+    minimizeBtn.onclick = () => {
+      restTimerMinimized = true;
+      overlay.classList.add("hidden");
+      if (mini) mini.classList.remove("hidden");
+    };
+  }
+
+  if (mini) {
+    mini.onclick = () => {
+      restTimerMinimized = false;
+      mini.classList.add("hidden");
+      overlay.classList.remove("hidden");
+    };
+    mini.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") mini.onclick();
+    };
+  }
 }
 
 function hideRestTimer() {
   clearInterval(restTimerIntervalId);
   restTimerIntervalId = null;
+  restTimerMinimized = false;
   const overlay = document.getElementById("restTimerOverlay");
   if (overlay) overlay.classList.add("hidden");
+  const mini = document.getElementById("restTimerMini");
+  if (mini) mini.classList.add("hidden");
 }
 
 async function init() {

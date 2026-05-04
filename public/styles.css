@@ -1438,6 +1438,13 @@ textarea {
   letter-spacing: 0.05em;
 }
 
+.rest-timer-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 .rest-timer-skip {
   background: transparent;
   border: 2px solid #4ade80;
@@ -1456,6 +1463,85 @@ textarea {
 .rest-timer-skip:active {
   background: #4ade80;
   color: #0d0d0d;
+}
+
+.rest-timer-minimize {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.35);
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 6px 16px;
+  border-radius: 40px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+
+.rest-timer-minimize:hover {
+  color: rgba(255,255,255,0.65);
+}
+
+/* ── Mini pill del rest timer ───────────────────────────────── */
+.rest-timer-mini {
+  position: fixed;
+  bottom: 74px; /* sopra la bottom nav */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f2016;
+  border: 1.5px solid #4ade80;
+  border-radius: 999px;
+  padding: 10px 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(74, 222, 128, 0.22);
+  transition: box-shadow 0.2s, transform 0.15s;
+  animation: rest-pill-in 0.25s ease-out;
+  user-select: none;
+}
+
+@keyframes rest-pill-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.rest-timer-mini:hover {
+  box-shadow: 0 6px 30px rgba(74, 222, 128, 0.38);
+}
+
+.rest-timer-mini:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+.rest-timer-mini.hidden {
+  display: none;
+}
+
+.rest-timer-mini-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.rest-timer-mini-display {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 26px;
+  color: #4ade80;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  min-width: 48px;
+  text-align: center;
+}
+
+.rest-timer-mini-hint {
+  font-size: 10px;
+  color: rgba(74, 222, 128, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
 }
 
 /* ── Rest input in editor ────────────────────────────────────── */

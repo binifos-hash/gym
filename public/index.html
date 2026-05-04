@@ -160,8 +160,18 @@
     <div class="rest-timer-content">
       <p class="rest-timer-label">PAUSA</p>
       <div id="restTimerDisplay" class="rest-timer-display">01:00</div>
-      <button id="restTimerSkip" class="rest-timer-skip" type="button">SKIP</button>
+      <div class="rest-timer-actions">
+        <button id="restTimerSkip" class="rest-timer-skip" type="button">SKIP</button>
+        <button id="restTimerMinimize" class="rest-timer-minimize" type="button">↙ Minimizza</button>
+      </div>
     </div>
+  </div>
+
+  <!-- Mini pill floating quando il timer è minimizzato -->
+  <div id="restTimerMini" class="rest-timer-mini hidden" role="button" tabindex="0" aria-label="Timer pausa — tocca per espandere">
+    <span class="rest-timer-mini-icon">⏱</span>
+    <span id="restTimerMiniDisplay" class="rest-timer-mini-display">01:00</span>
+    <span class="rest-timer-mini-hint">tocca per espandere</span>
   </div>
 
   <!-- Picker drawer -->
