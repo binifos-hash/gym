@@ -433,7 +433,6 @@ let workoutDetailDate = null;
 let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
 let restTimerIntervalId = null;
-let restTimerRemaining = 0;
 let restTimerMinimized = false;
 
 const weekContainerEl = document.getElementById("weekContainer");
@@ -2255,40 +2254,38 @@ function bindEvents() {
 }
 
 // ── Rest Timer ────────────────────────────────────────────────
-function showRestTimer(seconds) {
+const REST_TIMER_KEY = "gymplanner_rest_timer_ends_at";
+
+function restTimerFormatTime(s) {
+  const safe = Math.max(0, s);
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function _startRestTimerLoop() {
   const overlay = document.getElementById("restTimerOverlay");
   const display = document.getElementById("restTimerDisplay");
-  const skipBtn = document.getElementById("restTimerSkip");
-  const minimizeBtn = document.getElementById("restTimerMinimize");
   const mini = document.getElementById("restTimerMini");
   const miniDisplay = document.getElementById("restTimerMiniDisplay");
+  const skipBtn = document.getElementById("restTimerSkip");
+  const minimizeBtn = document.getElementById("restTimerMinimize");
 
   if (!overlay || !display || !skipBtn) return;
 
   clearInterval(restTimerIntervalId);
-  restTimerRemaining = seconds;
-  restTimerMinimized = false;
-
-  function formatTime(s) {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }
 
   function tick() {
-    const formatted = formatTime(restTimerRemaining);
+    const remaining = Math.round((Number(localStorage.getItem(REST_TIMER_KEY)) - Date.now()) / 1000);
+    const formatted = restTimerFormatTime(remaining);
     display.textContent = formatted;
     if (miniDisplay) miniDisplay.textContent = formatted;
-    if (restTimerRemaining <= 0) {
+    if (remaining <= 0) {
       hideRestTimer();
-    } else {
-      restTimerRemaining -= 1;
     }
   }
 
   tick();
-  overlay.classList.remove("hidden");
-  if (mini) mini.classList.add("hidden");
   restTimerIntervalId = setInterval(tick, 1000);
 
   skipBtn.onclick = hideRestTimer;
@@ -2313,14 +2310,43 @@ function showRestTimer(seconds) {
   }
 }
 
+function showRestTimer(seconds) {
+  // Persist end timestamp so the timer survives app close/reload
+  localStorage.setItem(REST_TIMER_KEY, String(Date.now() + seconds * 1000));
+  restTimerMinimized = false;
+
+  const overlay = document.getElementById("restTimerOverlay");
+  const mini = document.getElementById("restTimerMini");
+  if (overlay) overlay.classList.remove("hidden");
+  if (mini) mini.classList.add("hidden");
+
+  _startRestTimerLoop();
+}
+
 function hideRestTimer() {
   clearInterval(restTimerIntervalId);
   restTimerIntervalId = null;
   restTimerMinimized = false;
+  localStorage.removeItem(REST_TIMER_KEY);
   const overlay = document.getElementById("restTimerOverlay");
   if (overlay) overlay.classList.add("hidden");
   const mini = document.getElementById("restTimerMini");
   if (mini) mini.classList.add("hidden");
+}
+
+function restoreRestTimerIfNeeded() {
+  const endsAt = Number(localStorage.getItem(REST_TIMER_KEY));
+  if (!endsAt) return;
+  const remaining = Math.round((endsAt - Date.now()) / 1000);
+  if (remaining <= 0) {
+    localStorage.removeItem(REST_TIMER_KEY);
+    return;
+  }
+  // Timer is still running — restore it minimized so the user can keep using the app
+  restTimerMinimized = true;
+  const mini = document.getElementById("restTimerMini");
+  if (mini) mini.classList.remove("hidden");
+  _startRestTimerLoop();
 }
 
 async function init() {
@@ -2339,6 +2365,7 @@ async function init() {
   renderCalendar();
   renderPersonal();
   bindEvents();
+  restoreRestTimerIfNeeded();
   // Position the nav indicator instantly on first load (no animation)
   if (navIndicator) navIndicator.style.transition = "none";
   setActiveTab("tab-week");
