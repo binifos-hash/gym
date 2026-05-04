@@ -1391,12 +1391,23 @@ function renderEditor() {
     const controls = document.createElement("div");
     controls.className = "day-ex-controls";
 
+    function makeInputGroup(labelText, input) {
+      const group = document.createElement("label");
+      group.className = "day-ex-input-group";
+      const lbl = document.createElement("span");
+      lbl.className = "day-ex-input-label";
+      lbl.textContent = labelText;
+      group.appendChild(lbl);
+      group.appendChild(input);
+      return group;
+    }
+
     if (exercise.supportsWeight) {
       const weightInput = document.createElement("input");
       weightInput.type = "number";
       weightInput.step = "0.5";
       weightInput.min = "0";
-      weightInput.placeholder = "Peso kg";
+      weightInput.placeholder = "—";
       const _metaW = state.exerciseMeta?.[exercise.name]?.weight;
       const _defW = EXERCISE_DEFAULTS[exercise.name]?.weight;
       weightInput.value = typeof exercise.weight === "number"
@@ -1422,14 +1433,14 @@ function renderEditor() {
         }
       });
 
-      controls.appendChild(weightInput);
+      controls.appendChild(makeInputGroup("Peso (kg)", weightInput));
     }
 
     const setsInput = document.createElement("input");
     setsInput.type = "number";
     setsInput.min = "1";
     setsInput.max = "10";
-    setsInput.placeholder = "Serie";
+    setsInput.placeholder = "—";
     setsInput.className = "sets-reps-input";
     setsInput.title = "Serie";
     setsInput.value = typeof exercise.sets === "number" ? String(exercise.sets) : "3";
@@ -1438,13 +1449,13 @@ function renderEditor() {
       exercise.sets = isNaN(v) || v < 1 ? 3 : v;
       if (workoutDetailDate) renderWorkoutDetail();
     });
-    controls.appendChild(setsInput);
+    controls.appendChild(makeInputGroup("Serie", setsInput));
 
     const repsInput = document.createElement("input");
     repsInput.type = "number";
     repsInput.min = "1";
     repsInput.max = "100";
-    repsInput.placeholder = "Rip";
+    repsInput.placeholder = "—";
     repsInput.className = "sets-reps-input";
     repsInput.title = "Ripetizioni";
     repsInput.value = typeof exercise.reps === "number" ? String(exercise.reps) : "10";
@@ -1453,13 +1464,13 @@ function renderEditor() {
       exercise.reps = isNaN(v) || v < 1 ? 10 : v;
       if (workoutDetailDate) renderWorkoutDetail();
     });
-    controls.appendChild(repsInput);
+    controls.appendChild(makeInputGroup("Rip.", repsInput));
 
     const restInput = document.createElement("input");
     restInput.type = "number";
     restInput.step = "5";
     restInput.min = "0";
-    restInput.placeholder = "Pausa sec";
+    restInput.placeholder = "—";
     restInput.className = "rest-input";
     restInput.value = typeof exercise.restSeconds === "number" ? String(exercise.restSeconds) : "60";
 
@@ -1469,7 +1480,7 @@ function renderEditor() {
       syncWorkoutSessionsRange();
     });
 
-    controls.appendChild(restInput);
+    controls.appendChild(makeInputGroup("Pausa (s)", restInput));
 
     const removeBtn = document.createElement("button");
     removeBtn.className = "remove-btn";
