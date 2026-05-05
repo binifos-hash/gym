@@ -147,6 +147,20 @@
         <div id="diaryList" class="diary-list"></div>
       </div>
     </section>
+
+    <section id="tab-chat" class="tab-panel">
+      <div class="panel-card chat-card">
+        <div class="chat-head">
+          <h2>Coach AI</h2>
+          <p class="chat-sub">Consigli su scheda, progressione e tecnica usando i dati della tua app.</p>
+        </div>
+        <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+        <form id="chatForm" class="chat-form">
+          <textarea id="chatInput" rows="3" placeholder="Es: Come posso migliorare la giornata Spinta?" required></textarea>
+          <button id="chatSendBtn" type="submit" class="btn-save">Invia</button>
+        </form>
+      </div>
+    </section>
   </main>
 
   <nav class="bottom-nav">
@@ -154,6 +168,7 @@
     <button class="nav-btn" data-tab="tab-edit">Modifica</button>
     <button class="nav-btn nav-main active" data-tab="tab-week">Settimana</button>
     <button class="nav-btn" data-tab="tab-personal">Personale</button>
+    <button class="nav-btn" data-tab="tab-chat">Coach</button>
   </nav>
 
   <div id="restTimerOverlay" class="rest-timer-overlay hidden">

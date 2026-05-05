@@ -434,6 +434,7 @@ let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
 let restTimerIntervalId = null;
 let restTimerMinimized = false;
+let chatHistory = [];
 
 const weekContainerEl = document.getElementById("weekContainer");
 const weekOverviewEl = document.getElementById("weekOverview");
@@ -489,6 +490,10 @@ const metricsChartScrollEl = document.getElementById("metricsChartScroll");
 const diaryForm = document.getElementById("diaryForm");
 const diaryInputEl = document.getElementById("diaryInput");
 const diaryListEl = document.getElementById("diaryList");
+const chatMessagesEl = document.getElementById("chatMessages");
+const chatFormEl = document.getElementById("chatForm");
+const chatInputEl = document.getElementById("chatInput");
+const chatSendBtnEl = document.getElementById("chatSendBtn");
 
 const navButtons = [...document.querySelectorAll(".nav-btn")];
 const tabPanels = [...document.querySelectorAll(".tab-panel")];
@@ -2084,6 +2089,84 @@ function renderDiary() {
   });
 }
 
+function pushChatMessage(role, text, persist = true) {
+  if (!chatMessagesEl) return;
+  const safeRole = role === "user" ? "user" : role === "assistant" ? "assistant" : "system";
+
+  const item = document.createElement("div");
+  item.className = `chat-message chat-message-${safeRole}`;
+  item.textContent = text;
+  chatMessagesEl.appendChild(item);
+  chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+  if (persist && (safeRole === "user" || safeRole === "assistant")) {
+    chatHistory.push({ role: safeRole, content: text });
+    if (chatHistory.length > 20) {
+      chatHistory = chatHistory.slice(-20);
+    }
+  }
+}
+
+function renderChatWelcome() {
+  if (!chatMessagesEl || chatMessagesEl.children.length > 0) return;
+  pushChatMessage(
+    "assistant",
+    "Ciao, sono il tuo Coach AI. Posso analizzare i tuoi allenamenti e darti consigli su scheda, recupero, progressione e tecnica.",
+    false
+  );
+}
+
+async function handleChatSubmit(event) {
+  event.preventDefault();
+  if (!chatInputEl || !chatSendBtnEl || !chatMessagesEl) return;
+
+  const question = chatInputEl.value.trim();
+  if (!question) return;
+
+  pushChatMessage("user", question, true);
+  chatInputEl.value = "";
+  chatSendBtnEl.disabled = true;
+
+  const loading = document.createElement("div");
+  loading.className = "chat-message chat-message-assistant";
+  loading.textContent = "Sto pensando...";
+  chatMessagesEl.appendChild(loading);
+  chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+  try {
+    const history = chatHistory.slice(-12);
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, history })
+    });
+
+    let payload = null;
+    try {
+      payload = await res.json();
+    } catch {
+      payload = null;
+    }
+
+    loading.remove();
+
+    if (!res.ok) {
+      const msg = (payload && payload.error) || "Errore del chatbot";
+      pushChatMessage("system", msg, false);
+      return;
+    }
+
+    const answer = (payload && payload.answer) || "Nessuna risposta disponibile.";
+    pushChatMessage("assistant", answer, true);
+  } catch (error) {
+    loading.remove();
+    pushChatMessage("system", "Connessione al chatbot non riuscita.", false);
+  } finally {
+    chatSendBtnEl.disabled = false;
+    chatInputEl.focus();
+  }
+}
+
 function setActiveTab(tabId) {
   tabPanels.forEach((panel) => {
     panel.classList.toggle("active", panel.id === tabId);
@@ -2100,6 +2183,11 @@ function setActiveTab(tabId) {
 
   if (tabId === "tab-personal") {
     renderPersonal();
+  }
+
+  if (tabId === "tab-chat") {
+    renderChatWelcome();
+    if (chatInputEl) chatInputEl.focus();
   }
 }
 
@@ -2251,6 +2339,10 @@ function bindEvents() {
     diaryInputEl.value = "";
     renderDiary();
   });
+
+  if (chatFormEl) {
+    chatFormEl.addEventListener("submit", handleChatSubmit);
+  }
 }
 
 // ── Rest Timer ────────────────────────────────────────────────

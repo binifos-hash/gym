@@ -187,6 +187,119 @@ function isValidWorkoutSessions(workoutSessions) {
   });
 }
 
+function summarizeStateForCoach(state) {
+  const personal = state.personal || {};
+  const metrics = Array.isArray(personal.metrics) ? [...personal.metrics] : [];
+  const diary = Array.isArray(personal.diary) ? [...personal.diary] : [];
+  const sessions = Object.values(state.workoutSessions || {});
+
+  const recentSessions = sessions
+    .filter((s) => s && typeof s === "object" && typeof s.date === "string")
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 20)
+    .map((session) => {
+      const exercises = Array.isArray(session.exercises) ? session.exercises : [];
+      return {
+        date: session.date,
+        day: session.day,
+        status: session.status,
+        trainingType: session.trainingType || null,
+        durationSeconds: session.durationSeconds || 0,
+        completed: exercises.filter((e) => e && e.completed).length,
+        total: exercises.length,
+        exercises: exercises.slice(0, 10).map((e) => ({
+          name: e.name,
+          sets: e.sets,
+          reps: e.reps,
+          weight: e.weight,
+          completed: Boolean(e.completed)
+        }))
+      };
+    });
+
+  const weeklyPlan = {};
+  const days = ["lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato", "domenica"];
+  days.forEach((day) => {
+    const entries = Array.isArray(state.weekTemplate?.[day]) ? state.weekTemplate[day] : [];
+    weeklyPlan[day] = {
+      type: state.weekTemplateTypes?.[day] || null,
+      count: entries.length,
+      exercises: entries.slice(0, 8).map((e) => (typeof e === "string" ? e : e.name))
+    };
+  });
+
+  return {
+    profileName: personal.profileName || "",
+    latestMetrics: metrics.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6),
+    recentDiary: diary.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6),
+    weeklyPlan,
+    recentSessions
+  };
+}
+
+function generateFreeCoachReply(question, context) {
+  const q = String(question || "").toLowerCase();
+  const recent = Array.isArray(context.recentSessions) ? context.recentSessions : [];
+  const completed = recent.filter((s) => s.status === "completed");
+  const missed = recent.filter((s) => s.status === "missed");
+  const latestCompleted = completed[0] || null;
+
+  const lines = [];
+  lines.push("Analisi rapida basata sui tuoi dati GymPlanner (modalita free locale):");
+
+  if (latestCompleted) {
+    lines.push(
+      `- Ultimo workout completato: ${latestCompleted.date} (${latestCompleted.trainingType || latestCompleted.day || "n/d"}), ${latestCompleted.completed}/${latestCompleted.total} esercizi.`
+    );
+  } else {
+    lines.push("- Non vedo allenamenti completati recenti: inizia da una sessione breve per avere dati utili.");
+  }
+
+  lines.push(`- Sessioni completate recenti: ${completed.length}.`);
+  if (missed.length > 0) {
+    lines.push(`- Sessioni perse recenti: ${missed.length}.`);
+  }
+
+  const metrics = Array.isArray(context.latestMetrics) ? context.latestMetrics : [];
+  if (metrics.length >= 2) {
+    const newest = metrics[0];
+    const older = metrics[metrics.length - 1];
+    const dw = Number(newest.weight) - Number(older.weight);
+    const dm = Number(newest.muscleMass) - Number(older.muscleMass);
+    lines.push(`- Trend metriche: peso ${dw >= 0 ? "+" : ""}${dw.toFixed(1)} kg, massa ${dm >= 0 ? "+" : ""}${dm.toFixed(1)} kg.`);
+  }
+
+  lines.push("");
+  lines.push("Consiglio pratico:");
+
+  if (q.includes("spinta") || q.includes("petto") || q.includes("tricip")) {
+    lines.push("1. Tieni 1 esercizio forza (6-8 rip) + 2-3 esercizi ipertrofia (10-15 rip).");
+    lines.push("2. Lascia 1-2 ripetizioni in riserva nelle prime serie, ultima serie piu intensa.");
+    lines.push("3. Se stalli, aumenta prima volume totale (+1 serie) e solo dopo il carico.");
+  } else if (q.includes("trazione") || q.includes("schiena") || q.includes("bicip")) {
+    lines.push("1. Apri con un movimento verticale (lat machine) e poi un orizzontale (rematore/pulley).");
+    lines.push("2. Priorita a tecnica e controllo scapole prima di alzare i kg.");
+    lines.push("3. Inserisci 1 esercizio rear delts/face pull per equilibrio posturale.");
+  } else if (q.includes("gambe") || q.includes("quad") || q.includes("glute")) {
+    lines.push("1. Mantieni ordine: multiarticolare -> isolamento -> finisher.");
+    lines.push("2. Se il fiato limita, allunga recuperi principali a 90-120 secondi.");
+    lines.push("3. Obiettivo progressivo: +1 rip totale o +2.5 kg ogni 1-2 settimane.");
+  } else if (q.includes("recuper") || q.includes("dolore") || q.includes("stanco")) {
+    lines.push("1. Riduci volume del 20-30% per 1 settimana (deload).");
+    lines.push("2. Mantieni solo i fondamentali e cura sonno/idratazione.");
+    lines.push("3. Dolore acuto o persistente: stop esercizio e confronto con professionista.");
+  } else {
+    lines.push("1. Fissa una progressione semplice: quando completi tutte le serie, aumenta leggermente il carico.");
+    lines.push("2. Tieni recuperi coerenti: forza 90-120s, ipertrofia 60-90s.");
+    lines.push("3. Registra sempre peso/ripetizioni per poter confrontare settimana su settimana.");
+  }
+
+  lines.push("");
+  lines.push("Se vuoi, scrivimi il giorno specifico (Spinta/Trazione/Gambe) e ti propongo una revisione esercizio per esercizio.");
+
+  return lines.join("\n");
+}
+
 app.get("/api/state", async (req, res) => {
   try {
     const state = await readState();
@@ -320,6 +433,23 @@ app.get("/api/cleanup", async (req, res) => {
     return res.json({ ok: true, sessionsRemaining: sessions });
   } catch (error) {
     return res.status(500).json({ error: "Errore cleanup" });
+  }
+});
+
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { question } = req.body || {};
+    if (!question || typeof question !== "string") {
+      return res.status(400).json({ error: "Domanda non valida" });
+    }
+
+    const state = await readState();
+    const context = summarizeStateForCoach(state);
+    const answer = generateFreeCoachReply(question.trim().slice(0, 2000), context);
+
+    return res.json({ ok: true, answer });
+  } catch (error) {
+    return res.status(500).json({ error: `Errore chatbot: ${error.message}` });
   }
 });
 
