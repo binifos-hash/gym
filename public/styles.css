@@ -1339,6 +1339,7 @@ textarea {
 .exercise-info-video-wrap {
   width: 100%;
   aspect-ratio: 16 / 9;
+  min-height: clamp(220px, 34vh, 360px);
   border-radius: 12px;
   overflow: hidden;
   background: #000;
