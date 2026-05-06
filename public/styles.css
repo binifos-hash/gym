@@ -607,6 +607,17 @@ select:focus {
   border-color: rgba(113, 240, 167, 0.3);
 }
 
+.exercise-line-warmup .exercise-line-content {
+  border: 2px solid rgba(232, 255, 71, 0.75);
+  box-shadow: 0 0 0 4px rgba(232, 255, 71, 0.12);
+  border-radius: 20px;
+}
+
+.exercise-line-warmup .exercise-line-title::before {
+  content: "◎ ";
+  color: var(--accent);
+}
+
 .calendar-modal {
   position: fixed;
   inset: 0;
@@ -1435,6 +1446,11 @@ textarea {
   border-radius: 9px;
   padding: 9px 10px;
   margin-bottom: 8px;
+}
+
+.day-ex-warmup-item {
+  border-color: rgba(232, 255, 71, 0.35) !important;
+  background: linear-gradient(180deg, rgba(232, 255, 71, 0.08), rgba(232, 255, 71, 0.03));
 }
 
 .day-ex-top {

@@ -1053,17 +1053,39 @@ function prependWarmupExercises(exercises) {
   const warmups = getWarmupExercises();
   if (!warmups.length) return base;
 
-  const warmupNames = new Set(warmups.map((exercise) => exercise.name));
-  const alreadyPresent = new Set(
-    base
-      .filter((exercise) => exercise && warmupNames.has(exercise.name))
-      .map((exercise) => exercise.name)
-  );
+  const existingWarmups = base.filter((exercise) => exercise && exercise.warmup);
+  const nonWarmupExercises = base.filter((exercise) => !exercise?.warmup);
 
-  const existingWarmups = base.filter((exercise) => exercise && warmupNames.has(exercise.name));
-  const toInsert = warmups.filter((exercise) => !alreadyPresent.has(exercise.name));
-  const nonWarmupExercises = base.filter((exercise) => !warmupNames.has(exercise?.name));
-  return [...existingWarmups, ...toInsert, ...nonWarmupExercises];
+  const mergedWarmups = warmups.map((warmupExercise, index) => {
+    const existing = existingWarmups[index];
+    return existing
+      ? {
+          ...warmupExercise,
+          completed: Boolean(existing.completed)
+        }
+      : warmupExercise;
+  });
+
+  return [...mergedWarmups, ...nonWarmupExercises];
+}
+
+async function applyWarmupConfigToActiveSessions() {
+  Object.values(state.workoutSessions || {}).forEach((session) => {
+    if (!session || session.status === "completed" || session.status === "missed") {
+      return;
+    }
+    if (!Array.isArray(session.exercises) || !session.exercises.length) {
+      return;
+    }
+    session.exercises = prependWarmupExercises(session.exercises);
+  });
+
+  await saveWorkoutSessions();
+  renderWeekCards();
+  renderCalendar();
+  if (workoutDetailDate) {
+    renderWorkoutDetail();
+  }
 }
 
 function normalizeWeekTemplate() {
@@ -1642,6 +1664,90 @@ function renderEditor() {
   }
 
   dayExerciseListEl.innerHTML = "";
+
+  const warmupConfig = getWarmupExercises()[0] || DEFAULT_WARMUP_EXERCISES[0];
+  const warmupLi = document.createElement("li");
+  warmupLi.className = "day-ex-warmup-item";
+
+  const warmupTop = document.createElement("div");
+  warmupTop.className = "day-ex-top";
+
+  const warmupName = document.createElement("span");
+  warmupName.className = "day-ex-name";
+  warmupName.textContent = "Riscaldamento (inizio allenamento)";
+
+  const warmupMeta = document.createElement("span");
+  warmupMeta.className = "day-ex-meta";
+  warmupMeta.textContent = "automatico su tutti gli allenamenti";
+
+  warmupTop.appendChild(warmupName);
+  warmupTop.appendChild(warmupMeta);
+
+  const warmupControls = document.createElement("div");
+  warmupControls.className = "day-ex-controls";
+
+  function makeInputGroup(labelText, input) {
+    const group = document.createElement("label");
+    group.className = "day-ex-input-group";
+    const lbl = document.createElement("span");
+    lbl.className = "day-ex-input-label";
+    lbl.textContent = labelText;
+    group.appendChild(lbl);
+    group.appendChild(input);
+    return group;
+  }
+
+  const warmupNameInput = document.createElement("input");
+  warmupNameInput.type = "text";
+  warmupNameInput.placeholder = "Nome riscaldamento";
+  warmupNameInput.value = warmupConfig?.name || "Elittica (Riscaldamento 5 min)";
+  warmupNameInput.addEventListener("change", async () => {
+    const nextName = warmupNameInput.value.trim() || "Elittica (Riscaldamento 5 min)";
+    DEFAULT_WARMUP_EXERCISES[0] = {
+      ...DEFAULT_WARMUP_EXERCISES[0],
+      name: nextName,
+      category: "Riscaldamento",
+      trainingType: "Cardio",
+      supportsWeight: false,
+      weight: null,
+      restSeconds: 0,
+      warmup: true
+    };
+    await applyWarmupConfigToActiveSessions();
+    renderEditor();
+  });
+
+  const warmupMinutesInput = document.createElement("input");
+  warmupMinutesInput.type = "number";
+  warmupMinutesInput.min = "1";
+  warmupMinutesInput.max = "30";
+  warmupMinutesInput.step = "1";
+  warmupMinutesInput.value = String(warmupConfig?.reps || 5);
+  warmupMinutesInput.addEventListener("change", async () => {
+    const raw = Number(warmupMinutesInput.value);
+    const nextMinutes = Number.isNaN(raw) ? 5 : Math.min(30, Math.max(1, Math.round(raw)));
+    DEFAULT_WARMUP_EXERCISES[0] = {
+      ...DEFAULT_WARMUP_EXERCISES[0],
+      reps: nextMinutes,
+      sets: 1,
+      category: "Riscaldamento",
+      trainingType: "Cardio",
+      supportsWeight: false,
+      weight: null,
+      restSeconds: 0,
+      warmup: true
+    };
+    warmupMinutesInput.value = String(nextMinutes);
+    await applyWarmupConfigToActiveSessions();
+    renderEditor();
+  });
+
+  warmupControls.appendChild(makeInputGroup("Esercizio", warmupNameInput));
+  warmupControls.appendChild(makeInputGroup("Minuti", warmupMinutesInput));
+  warmupLi.appendChild(warmupTop);
+  warmupLi.appendChild(warmupControls);
+  dayExerciseListEl.appendChild(warmupLi);
+
   plannedExercises.forEach((exercise, exerciseIndex) => {
     const li = document.createElement("li");
 
@@ -1661,17 +1767,6 @@ function renderEditor() {
 
     const controls = document.createElement("div");
     controls.className = "day-ex-controls";
-
-    function makeInputGroup(labelText, input) {
-      const group = document.createElement("label");
-      group.className = "day-ex-input-group";
-      const lbl = document.createElement("span");
-      lbl.className = "day-ex-input-label";
-      lbl.textContent = labelText;
-      group.appendChild(lbl);
-      group.appendChild(input);
-      return group;
-    }
 
     if (exercise.supportsWeight) {
       const weightInput = document.createElement("input");
@@ -1777,7 +1872,10 @@ function renderEditor() {
   });
 
   if (!plannedExercises.length) {
-    dayExerciseListEl.innerHTML = '<li class="day-ex-empty">Nessun esercizio nel giorno selezionato.</li>';
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "day-ex-empty";
+    emptyLi.textContent = "Nessun esercizio nel giorno selezionato.";
+    dayExerciseListEl.appendChild(emptyLi);
   }
 }
 
@@ -1992,6 +2090,9 @@ function renderWorkoutDetail() {
   session.exercises.forEach((exercise, index) => {
     const row = document.createElement("div");
     row.className = `exercise-line ${exercise.completed ? "exercise-line-done" : ""}`;
+    if (exercise.warmup) {
+      row.classList.add("exercise-line-warmup");
+    }
     row.style.cursor = "pointer";
 
     const point = document.createElement("span");
@@ -2030,7 +2131,8 @@ function renderWorkoutDetail() {
     meta.className = "exercise-line-meta";
     const weightStr = exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : "";
     const setsStr = (exercise.sets || 3) + "×" + (exercise.reps || 10);
-    meta.textContent = `${setsStr} · ${exercise.trainingType}${weightStr}`;
+    const warmupStr = exercise.warmup ? " · Riscaldamento" : "";
+    meta.textContent = `${setsStr} · ${exercise.trainingType}${weightStr}${warmupStr}`;
 
     content.appendChild(title);
     content.appendChild(meta);
