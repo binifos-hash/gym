@@ -40,6 +40,19 @@ const trainingTypeOptions = [
 
 const WORKOUT_SYNC_PAST_DAYS = 90;
 const TOORX_DEFAULT_VIDEO = "https://www.youtube.com/embed/wMtmj4TBsKY";
+const DEFAULT_WARMUP_EXERCISES = [
+  {
+    name: "Elittica (Riscaldamento 5 min)",
+    category: "Riscaldamento",
+    trainingType: "Cardio",
+    supportsWeight: false,
+    weight: null,
+    restSeconds: 0,
+    sets: 1,
+    reps: 5,
+    warmup: true
+  }
+];
 
 const EXERCISE_DEFAULTS = {
   // -------- PESI LIBERI --------
@@ -1012,8 +1025,45 @@ function normalizeExerciseEntry(entry) {
     weight,
     restSeconds: (isObj && typeof entry.restSeconds === "number") ? entry.restSeconds : 60,
     sets: (isObj && typeof entry.sets === "number") ? entry.sets : 3,
-    reps: (isObj && typeof entry.reps === "number") ? entry.reps : 10
+    reps: (isObj && typeof entry.reps === "number") ? entry.reps : 10,
+    warmup: Boolean(isObj && entry.warmup)
   };
+}
+
+function getWarmupExercises() {
+  return DEFAULT_WARMUP_EXERCISES
+    .map(normalizeExerciseEntry)
+    .filter(Boolean)
+    .map((exercise) => ({
+      ...exercise,
+      supportsWeight: false,
+      weight: null,
+      restSeconds: Number.isFinite(exercise.restSeconds) ? exercise.restSeconds : 0,
+      sets: Number.isFinite(exercise.sets) ? exercise.sets : 1,
+      reps: Number.isFinite(exercise.reps) ? exercise.reps : 5,
+      warmup: true,
+      completed: false
+    }));
+}
+
+function prependWarmupExercises(exercises) {
+  const base = Array.isArray(exercises) ? exercises : [];
+  if (!base.length) return [];
+
+  const warmups = getWarmupExercises();
+  if (!warmups.length) return base;
+
+  const warmupNames = new Set(warmups.map((exercise) => exercise.name));
+  const alreadyPresent = new Set(
+    base
+      .filter((exercise) => exercise && warmupNames.has(exercise.name))
+      .map((exercise) => exercise.name)
+  );
+
+  const existingWarmups = base.filter((exercise) => exercise && warmupNames.has(exercise.name));
+  const toInsert = warmups.filter((exercise) => !alreadyPresent.has(exercise.name));
+  const nonWarmupExercises = base.filter((exercise) => !warmupNames.has(exercise?.name));
+  return [...existingWarmups, ...toInsert, ...nonWarmupExercises];
 }
 
 function normalizeWeekTemplate() {
@@ -1030,7 +1080,7 @@ function normalizeWeekTemplate() {
 }
 
 function cloneExercisesForSession(exercises) {
-  return exercises
+  const baseExercises = exercises
     .map(normalizeExerciseEntry)
     .filter(Boolean)
     .map((exercise) => ({
@@ -1038,6 +1088,8 @@ function cloneExercisesForSession(exercises) {
       weight: resolveExerciseWeight(exercise.name, exercise.weight),
       completed: false
     }));
+
+  return prependWarmupExercises(baseExercises);
 }
 
 function normalizeWorkoutSession(session, dateKey) {
@@ -1052,7 +1104,7 @@ function normalizeWorkoutSession(session, dateKey) {
 
   const dateObj = dateFromIso(resolvedDate);
   const day = session.day || getDayFromDate(dateObj);
-  const normalizedExercises = Array.isArray(session.exercises)
+  let normalizedExercises = Array.isArray(session.exercises)
     ? session.exercises
       .map((exercise) => {
         const normalized = normalizeExerciseEntry(exercise);
@@ -1070,6 +1122,11 @@ function normalizeWorkoutSession(session, dateKey) {
 
   const validStatuses = ["planned", "in_progress", "paused", "completed", "missed"];
   const status = validStatuses.includes(session.status) ? session.status : (resolvedDate < getTodayKey() ? "missed" : "planned");
+
+  // Add warmup only to editable sessions; keep historical completed/missed sessions untouched.
+  if (normalizedExercises.length && status !== "completed" && status !== "missed") {
+    normalizedExercises = prependWarmupExercises(normalizedExercises);
+  }
 
   return {
     date: resolvedDate,
