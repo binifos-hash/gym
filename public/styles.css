@@ -679,6 +679,16 @@ select:focus {
   margin: 14px 0 16px;
 }
 
+.calendar-heatmap-summary {
+  font-size: 12px;
+  color: #b9b9b9;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
 .legend-dot {
   display: inline-block;
   width: 10px;
@@ -741,6 +751,23 @@ select:focus {
   background: rgba(113, 240, 167, 0.08);
 }
 
+.calendar-cell-done.calendar-heat-1 {
+  background: rgba(113, 240, 167, 0.13);
+}
+
+.calendar-cell-done.calendar-heat-2 {
+  background: rgba(113, 240, 167, 0.2);
+}
+
+.calendar-cell-done.calendar-heat-3 {
+  background: rgba(113, 240, 167, 0.28);
+}
+
+.calendar-cell-done.calendar-heat-4 {
+  background: rgba(113, 240, 167, 0.36);
+  box-shadow: inset 0 0 0 1px rgba(113, 240, 167, 0.35);
+}
+
 .calendar-cell-missed {
   border-color: rgba(255, 92, 53, 0.34);
   background: rgba(255, 92, 53, 0.08);
@@ -748,6 +775,17 @@ select:focus {
 
 .calendar-cell-today {
   box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.progression-hint {
+  margin-top: 10px;
+  border: 1px solid rgba(232, 255, 71, 0.25);
+  background: rgba(232, 255, 71, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #e8ff47;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .exercises {

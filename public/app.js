@@ -472,6 +472,7 @@ const workoutExerciseListEl = document.getElementById("workoutExerciseList");
 const calendarModalEl = document.getElementById("calendarModal");
 const calendarGridEl = document.getElementById("calendarGrid");
 const calendarMonthLabelEl = document.getElementById("calendarMonthLabel");
+const calendarHeatmapSummaryEl = document.getElementById("calendarHeatmapSummary");
 const calendarPrevBtn = document.getElementById("calendarPrevBtn");
 const calendarNextBtn = document.getElementById("calendarNextBtn");
 const closeCalendarBtn = document.getElementById("closeCalendarBtn");
@@ -734,6 +735,219 @@ function formatDuration(totalSeconds) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+function roundToStep(value, step = 0.5) {
+  if (!Number.isFinite(value)) return null;
+  const safeStep = step > 0 ? step : 0.5;
+  return Math.round(value / safeStep) * safeStep;
+}
+
+function resolveExerciseWeight(name, explicitWeight) {
+  if (typeof explicitWeight === "number" && Number.isFinite(explicitWeight)) {
+    return explicitWeight;
+  }
+  const metaWeight = state.exerciseMeta?.[name]?.weight;
+  if (typeof metaWeight === "number" && Number.isFinite(metaWeight)) {
+    return metaWeight;
+  }
+  const defaultWeight = EXERCISE_DEFAULTS[name]?.weight;
+  if (typeof defaultWeight === "number" && Number.isFinite(defaultWeight)) {
+    return defaultWeight;
+  }
+  return null;
+}
+
+function getExerciseCompletionTrend(exerciseName, dateKey, limit = 4) {
+  const prior = Object.values(state.workoutSessions || {})
+    .filter((session) => session && session.status === "completed" && session.date < dateKey)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const outcomes = [];
+  prior.forEach((session) => {
+    if (outcomes.length >= limit) return;
+    const match = Array.isArray(session.exercises)
+      ? session.exercises.find((exercise) => exercise && exercise.name === exerciseName)
+      : null;
+    if (match) {
+      outcomes.push(match.completed ? 1 : -1);
+    }
+  });
+
+  return outcomes.reduce((sum, value) => sum + value, 0);
+}
+
+function getAverageDurationForTrainingType(trainingType, dateKey) {
+  if (!trainingType) return 0;
+  const durations = Object.values(state.workoutSessions || {})
+    .filter((session) => {
+      return session
+        && session.status === "completed"
+        && session.date < dateKey
+        && session.trainingType === trainingType
+        && Number.isFinite(session.durationSeconds)
+        && session.durationSeconds > 0;
+    })
+    .map((session) => session.durationSeconds)
+    .slice(0, 8);
+
+  if (!durations.length) return 0;
+  return durations.reduce((sum, seconds) => sum + seconds, 0) / durations.length;
+}
+
+function computeNextWeightSuggestion(exercise, session, sessionCompletionRate) {
+  if (!exercise || !exercise.supportsWeight) {
+    return null;
+  }
+
+  const currentWeight = resolveExerciseWeight(exercise.name, exercise.weight);
+  if (!Number.isFinite(currentWeight) || currentWeight <= 0) {
+    return null;
+  }
+
+  let delta = exercise.completed ? 0.03 : -0.05;
+
+  if (sessionCompletionRate >= 0.9) delta += 0.01;
+  if (sessionCompletionRate < 0.7) delta -= 0.02;
+
+  const trend = getExerciseCompletionTrend(exercise.name, session.date, 4);
+  if (trend >= 2) delta += 0.01;
+  if (trend <= -2) delta -= 0.02;
+
+  const avgDuration = getAverageDurationForTrainingType(session.trainingType, session.date);
+  if (avgDuration > 0 && session.durationSeconds > avgDuration * 1.25 && delta > 0) {
+    delta -= 0.015;
+  }
+
+  delta = Math.max(-0.1, Math.min(0.08, delta));
+
+  const suggested = roundToStep(Math.max(0.5, currentWeight * (1 + delta)), 0.5);
+  if (!Number.isFinite(suggested)) {
+    return null;
+  }
+
+  return {
+    current: currentWeight,
+    suggested,
+    delta,
+    trend
+  };
+}
+
+function applyAutoProgression(session) {
+  if (!session || session.status !== "completed" || !Array.isArray(session.exercises) || !session.exercises.length) {
+    return [];
+  }
+
+  if (!state.exerciseMeta || typeof state.exerciseMeta !== "object") {
+    state.exerciseMeta = {};
+  }
+
+  const sessionCompletionRate = getCompletedExerciseCount(session) / Math.max(1, session.exercises.length);
+  const updates = [];
+
+  session.exercises.forEach((exercise) => {
+    const suggestion = computeNextWeightSuggestion(exercise, session, sessionCompletionRate);
+    if (!suggestion) return;
+
+    const safeSuggested = Math.max(0.5, suggestion.suggested);
+    const prevMeta = state.exerciseMeta[exercise.name] || {};
+    state.exerciseMeta[exercise.name] = {
+      ...prevMeta,
+      weight: safeSuggested
+    };
+
+    updates.push({
+      name: exercise.name,
+      from: suggestion.current,
+      to: safeSuggested
+    });
+  });
+
+  // Keep already-generated future planned sessions aligned with new recommendations.
+  Object.values(state.workoutSessions || {}).forEach((futureSession) => {
+    if (!futureSession || futureSession.date <= session.date || futureSession.status !== "planned") {
+      return;
+    }
+    futureSession.exercises.forEach((exercise) => {
+      const target = updates.find((entry) => entry.name === exercise.name);
+      if (target && exercise.supportsWeight) {
+        exercise.weight = target.to;
+      }
+    });
+  });
+
+  return updates;
+}
+
+async function saveExerciseMetaState() {
+  const res = await fetch("/api/exercise-meta", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ exerciseMeta: state.exerciseMeta })
+  });
+  return res.ok;
+}
+
+function getSessionPerformanceScore(session) {
+  if (!session || !Array.isArray(session.exercises) || !session.exercises.length) {
+    return null;
+  }
+
+  if (session.status === "missed") {
+    return 0;
+  }
+
+  const completionRate = getCompletedExerciseCount(session) / Math.max(1, session.exercises.length);
+
+  if (session.status === "completed") {
+    const targetSeconds = 45 * 60;
+    const duration = Number.isFinite(session.durationSeconds) ? session.durationSeconds : targetSeconds;
+    const distance = Math.abs(duration - targetSeconds) / targetSeconds;
+    const durationFactor = Math.max(0.35, 1 - distance);
+    return Math.round((completionRate * 0.72 + durationFactor * 0.28) * 100);
+  }
+
+  if (session.status === "in_progress" || session.status === "paused") {
+    return Math.round(35 + completionRate * 30);
+  }
+
+  return 25;
+}
+
+function getHeatTier(score) {
+  if (!Number.isFinite(score) || score <= 0) return 0;
+  if (score >= 85) return 4;
+  if (score >= 70) return 3;
+  if (score >= 55) return 2;
+  return 1;
+}
+
+function updateCalendarHeatmapSummary(monthDate) {
+  if (!calendarHeatmapSummaryEl) return;
+
+  const month = monthDate.getMonth();
+  const year = monthDate.getFullYear();
+  const monthlySessions = Object.values(state.workoutSessions || {}).filter((session) => {
+    if (!session || !session.date) return false;
+    const d = dateFromIso(session.date);
+    return d.getFullYear() === year && d.getMonth() === month && Array.isArray(session.exercises) && session.exercises.length;
+  });
+
+  const completed = monthlySessions.filter((session) => session.status === "completed");
+  const missed = monthlySessions.filter((session) => session.status === "missed").length;
+  const avgScore = completed.length
+    ? Math.round(completed.reduce((sum, session) => sum + (getSessionPerformanceScore(session) || 0), 0) / completed.length)
+    : 0;
+
+  const typeCounter = {};
+  completed.forEach((session) => {
+    const type = session.trainingType || "Workout";
+    typeCounter[type] = (typeCounter[type] || 0) + 1;
+  });
+  const bestType = Object.entries(typeCounter).sort((a, b) => b[1] - a[1])[0]?.[0] || "n/d";
+
+  calendarHeatmapSummaryEl.textContent = `Heatmap mese: ${completed.length} completati, ${missed} persi, score medio ${avgScore}/100, focus migliore: ${bestType}.`;
+}
+
 function inferExerciseMeta(name) {
   const lower = (name || "").toLowerCase();
 
@@ -821,6 +1035,7 @@ function cloneExercisesForSession(exercises) {
     .filter(Boolean)
     .map((exercise) => ({
       ...exercise,
+      weight: resolveExerciseWeight(exercise.name, exercise.weight),
       completed: false
     }));
 }
@@ -1604,11 +1819,30 @@ async function handleFinishWorkout(session) {
   session.activeStartedAt = null;
   session.status = "completed";
   session.completedAt = new Date().toISOString();
+
+  const progressionUpdates = applyAutoProgression(session);
+
+  if (progressionUpdates.length) {
+    const metaSaved = await saveExerciseMetaState();
+    if (!metaSaved) {
+      alert("Workout salvato, ma non sono riuscito a salvare i nuovi carichi consigliati.");
+    }
+  }
+
   await saveWorkoutSessions();
   renderWeekCards();
   renderCalendar();
   renderWorkoutDetail();
   renderPersonal();
+
+  if (progressionUpdates.length) {
+    const preview = progressionUpdates
+      .slice(0, 4)
+      .map((item) => `${item.name}: ${item.from} -> ${item.to} kg`)
+      .join("\n");
+    const extra = progressionUpdates.length > 4 ? `\n...e altri ${progressionUpdates.length - 4}` : "";
+    alert(`Progressione automatica aggiornata:\n${preview}${extra}`);
+  }
 }
 
 async function handleCancelWorkout(session) {
@@ -1649,6 +1883,14 @@ function renderWorkoutDetail() {
   if (session.status === "completed") {
     workoutCompletedSummaryEl.textContent = `Tempo finale ${formatDuration(session.durationSeconds)} · ${getCompletedExerciseCount(session)}/${session.exercises.length} esercizi completati`;
     stopTimerLoop();
+
+    const weightedExercises = session.exercises.filter((exercise) => exercise.supportsWeight);
+    if (weightedExercises.length) {
+      const hint = document.createElement("div");
+      hint.className = "progression-hint";
+      hint.textContent = "Progressione automatica attiva: al termine del workout i carichi consigliati vengono aggiornati in base a completamento, durata e trend recente.";
+      workoutActionsEl.appendChild(hint);
+    }
   } else if (session.status === "in_progress" || session.status === "paused") {
     workoutTimerEl.textContent = formatDuration(getSessionElapsedSeconds(session));
     if (session.status === "in_progress") {
@@ -1804,6 +2046,7 @@ function renderCalendar() {
   }
 
   calendarMonthLabelEl.textContent = formatMonthYear(calendarMonthCursor);
+  updateCalendarHeatmapSummary(calendarMonthCursor);
   calendarGridEl.innerHTML = "";
 
   const firstDay = startOfMonth(calendarMonthCursor);
@@ -1827,6 +2070,14 @@ function renderCalendar() {
 
     if (session && session.exercises.length) {
       cell.classList.add(`calendar-cell-${visualStatus === "done" ? "done" : visualStatus === "missed" ? "missed" : "planned"}`);
+      const score = getSessionPerformanceScore(session);
+      if (visualStatus === "done") {
+        const tier = getHeatTier(score);
+        if (tier > 0) cell.classList.add(`calendar-heat-${tier}`);
+      }
+      if (Number.isFinite(score)) {
+        cell.title = `Score ${score}/100 · ${getSessionStatusLabel(session, dateKey)}`;
+      }
       cell.addEventListener("click", () => {
         closeCalendar();
         openWorkoutDetail(dateKey);
