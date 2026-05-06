@@ -79,17 +79,18 @@ body {
 }
 
 .tab-panel {
-  display: block;
+  display: none;
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;
-  position: absolute;
+  position: relative;
   width: 100%;
   transition: opacity 0.22s ease, transform 0.22s ease;
   visibility: hidden;
 }
 
 .tab-panel.active {
+  display: block;
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
