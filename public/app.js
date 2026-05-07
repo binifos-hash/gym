@@ -447,6 +447,7 @@ let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
 let restTimerIntervalId = null;
 let restTimerMinimized = false;
+let pendingProgressionReview = null;
 
 const weekContainerEl = document.getElementById("weekContainer");
 const weekOverviewEl = document.getElementById("weekOverview");
@@ -845,13 +846,9 @@ function computeNextWeightSuggestion(exercise, session, sessionCompletionRate) {
   };
 }
 
-function applyAutoProgression(session) {
+function buildAutoProgressionUpdates(session) {
   if (!session || session.status !== "completed" || !Array.isArray(session.exercises) || !session.exercises.length) {
     return [];
-  }
-
-  if (!state.exerciseMeta || typeof state.exerciseMeta !== "object") {
-    state.exerciseMeta = {};
   }
 
   const sessionCompletionRate = getCompletedExerciseCount(session) / Math.max(1, session.exercises.length);
@@ -862,33 +859,109 @@ function applyAutoProgression(session) {
     if (!suggestion) return;
 
     const safeSuggested = Math.max(0.5, suggestion.suggested);
-    const prevMeta = state.exerciseMeta[exercise.name] || {};
-    state.exerciseMeta[exercise.name] = {
-      ...prevMeta,
-      weight: safeSuggested
-    };
-
     updates.push({
       name: exercise.name,
       from: suggestion.current,
-      to: safeSuggested
-    });
-  });
-
-  // Keep already-generated future planned sessions aligned with new recommendations.
-  Object.values(state.workoutSessions || {}).forEach((futureSession) => {
-    if (!futureSession || futureSession.date <= session.date || futureSession.status !== "planned") {
-      return;
-    }
-    futureSession.exercises.forEach((exercise) => {
-      const target = updates.find((entry) => entry.name === exercise.name);
-      if (target && exercise.supportsWeight) {
-        exercise.weight = target.to;
-      }
+      to: safeSuggested,
+      suggested: safeSuggested
     });
   });
 
   return updates;
+}
+
+function applyProgressionUpdates(updates, sessionDate) {
+  if (!Array.isArray(updates) || !updates.length) {
+    return;
+  }
+
+  if (!state.exerciseMeta || typeof state.exerciseMeta !== "object") {
+    state.exerciseMeta = {};
+  }
+
+  updates.forEach((entry) => {
+    if (!entry || !entry.name || !Number.isFinite(entry.suggested)) {
+      return;
+    }
+    const safeSuggested = Math.max(0.5, roundToStep(entry.suggested, 0.5));
+    const prevMeta = state.exerciseMeta[entry.name] || {};
+    state.exerciseMeta[entry.name] = {
+      ...prevMeta,
+      weight: safeSuggested
+    };
+    entry.suggested = safeSuggested;
+  });
+
+  // Keep already-generated future planned sessions aligned with new recommendations.
+  Object.values(state.workoutSessions || {}).forEach((futureSession) => {
+    if (!futureSession || futureSession.date <= sessionDate || futureSession.status !== "planned") {
+      return;
+    }
+    futureSession.exercises.forEach((exercise) => {
+      const target = updates.find((entry) => entry && entry.name === exercise.name);
+      if (target && exercise.supportsWeight) {
+        exercise.weight = target.suggested;
+      }
+    });
+  });
+}
+
+function openProgressionReview(session, updates) {
+  if (!session || !Array.isArray(updates) || !updates.length) {
+    pendingProgressionReview = null;
+    return;
+  }
+
+  pendingProgressionReview = {
+    sessionDate: session.date,
+    updates: updates.map((entry) => ({ ...entry }))
+  };
+}
+
+function dismissProgressionReview() {
+  pendingProgressionReview = null;
+  if (workoutDetailDate) {
+    renderWorkoutDetail();
+  }
+}
+
+async function confirmProgressionReview() {
+  if (!pendingProgressionReview || !Array.isArray(pendingProgressionReview.updates)) {
+    return;
+  }
+
+  const cleanUpdates = pendingProgressionReview.updates
+    .map((entry) => {
+      const parsed = Number(entry.suggested);
+      if (!entry.name || Number.isNaN(parsed) || parsed <= 0) {
+        return null;
+      }
+      return {
+        ...entry,
+        suggested: Math.max(0.5, roundToStep(parsed, 0.5))
+      };
+    })
+    .filter(Boolean);
+
+  if (!cleanUpdates.length) {
+    dismissProgressionReview();
+    return;
+  }
+
+  applyProgressionUpdates(cleanUpdates, pendingProgressionReview.sessionDate);
+  const metaSaved = await saveExerciseMetaState();
+  if (!metaSaved) {
+    alert("Non sono riuscito a salvare i nuovi carichi consigliati.");
+    return;
+  }
+
+  pendingProgressionReview = null;
+  renderEditor();
+  renderWeekCards();
+  renderCalendar();
+  if (workoutDetailDate) {
+    renderWorkoutDetail();
+  }
 }
 
 async function saveExerciseMetaState() {
@@ -1975,14 +2048,7 @@ async function handleFinishWorkout(session) {
   session.status = "completed";
   session.completedAt = new Date().toISOString();
 
-  const progressionUpdates = applyAutoProgression(session);
-
-  if (progressionUpdates.length) {
-    const metaSaved = await saveExerciseMetaState();
-    if (!metaSaved) {
-      alert("Workout salvato, ma non sono riuscito a salvare i nuovi carichi consigliati.");
-    }
-  }
+  const progressionUpdates = buildAutoProgressionUpdates(session);
 
   await saveWorkoutSessions();
   renderWeekCards();
@@ -1991,12 +2057,8 @@ async function handleFinishWorkout(session) {
   renderPersonal();
 
   if (progressionUpdates.length) {
-    const preview = progressionUpdates
-      .slice(0, 4)
-      .map((item) => `${item.name}: ${item.from} -> ${item.to} kg`)
-      .join("\n");
-    const extra = progressionUpdates.length > 4 ? `\n...e altri ${progressionUpdates.length - 4}` : "";
-    alert(`Progressione automatica aggiornata:\n${preview}${extra}`);
+    openProgressionReview(session, progressionUpdates);
+    renderWorkoutDetail();
   }
 }
 
@@ -2154,6 +2216,82 @@ function renderWorkoutDetail() {
   });
 
   workoutExerciseListEl.appendChild(timeline);
+
+  if (
+    session.status === "completed"
+    && pendingProgressionReview
+    && pendingProgressionReview.sessionDate === session.date
+    && Array.isArray(pendingProgressionReview.updates)
+    && pendingProgressionReview.updates.length
+  ) {
+    const reviewCard = document.createElement("div");
+    reviewCard.className = "progression-review-card";
+
+    const reviewTitle = document.createElement("h3");
+    reviewTitle.textContent = "Nuovi pesi consigliati";
+    reviewCard.appendChild(reviewTitle);
+
+    const reviewSub = document.createElement("p");
+    reviewSub.className = "progression-review-sub";
+    reviewSub.textContent = "Modifica i valori se vuoi, poi salva o ignora.";
+    reviewCard.appendChild(reviewSub);
+
+    const reviewList = document.createElement("div");
+    reviewList.className = "progression-review-list";
+
+    pendingProgressionReview.updates.forEach((entry, index) => {
+      const row = document.createElement("div");
+      row.className = "progression-review-row";
+
+      const info = document.createElement("div");
+      info.className = "progression-review-info";
+
+      const name = document.createElement("strong");
+      name.textContent = entry.name;
+
+      const from = document.createElement("span");
+      from.textContent = `Attuale: ${entry.from} kg`;
+
+      info.appendChild(name);
+      info.appendChild(from);
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "0.5";
+      input.min = "0.5";
+      input.value = String(entry.suggested ?? entry.to);
+      input.addEventListener("input", () => {
+        const parsed = Number(input.value);
+        pendingProgressionReview.updates[index].suggested = Number.isNaN(parsed) ? entry.suggested : parsed;
+      });
+
+      row.appendChild(info);
+      row.appendChild(input);
+      reviewList.appendChild(row);
+    });
+
+    reviewCard.appendChild(reviewList);
+
+    const actions = document.createElement("div");
+    actions.className = "progression-review-actions";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "btn-save";
+    saveBtn.textContent = "Salva consigli";
+    saveBtn.addEventListener("click", confirmProgressionReview);
+
+    const ignoreBtn = document.createElement("button");
+    ignoreBtn.type = "button";
+    ignoreBtn.className = "workout-cancel-btn";
+    ignoreBtn.textContent = "Ignora";
+    ignoreBtn.addEventListener("click", dismissProgressionReview);
+
+    actions.appendChild(saveBtn);
+    actions.appendChild(ignoreBtn);
+    reviewCard.appendChild(actions);
+    workoutExerciseListEl.appendChild(reviewCard);
+  }
 
   // Diary note section (only for completed workouts)
   if (session.status === "completed") {
