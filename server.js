@@ -315,7 +315,7 @@ app.put("/api/exercise-meta", async (req, res) => {
 
 app.put("/api/move-exercise", async (req, res) => {
   try {
-    const { fromDay, toDay, exerciseIndex } = req.body;
+    const { fromDay, toDay } = req.body;
 
     const validDays = [
       "lunedi",
@@ -331,33 +331,35 @@ app.put("/api/move-exercise", async (req, res) => {
       return res.status(400).json({ error: "Giorno non valido" });
     }
 
-    if (typeof exerciseIndex !== "number" || exerciseIndex < 0) {
-      return res.status(400).json({ error: "Indice esercizio non valido" });
+    if (fromDay === toDay) {
+      return res.status(400).json({ error: "Non puoi spostare in lo stesso giorno" });
     }
 
     const state = await readState();
 
-    if (!state.weekTemplate[fromDay] || !Array.isArray(state.weekTemplate[fromDay])) {
-      return res.status(400).json({ error: "Giorno non esiste o nessun esercizio" });
+    // Scambia interi allenamenti tra due giorni
+    const tempTemplate = state.weekTemplate[fromDay];
+    const tempType = state.weekTemplateTypes?.[fromDay];
+
+    state.weekTemplate[fromDay] = state.weekTemplate[toDay] || [];
+    state.weekTemplate[toDay] = tempTemplate || [];
+
+    if (tempType) {
+      state.weekTemplateTypes[toDay] = tempType;
+      delete state.weekTemplateTypes[fromDay];
+    } else {
+      delete state.weekTemplateTypes[toDay];
     }
 
-    if (exerciseIndex >= state.weekTemplate[fromDay].length) {
-      return res.status(400).json({ error: "Indice esercizio fuori range" });
+    const toType = state.weekTemplateTypes?.[fromDay];
+    if (!toType) {
+      delete state.weekTemplateTypes[fromDay];
     }
-
-    // Se il giorno di destinazione non ha esercizi, inizializzare come array
-    if (!state.weekTemplate[toDay] || !Array.isArray(state.weekTemplate[toDay])) {
-      state.weekTemplate[toDay] = [];
-    }
-
-    // Spostare l'esercizio
-    const exercise = state.weekTemplate[fromDay].splice(exerciseIndex, 1)[0];
-    state.weekTemplate[toDay].push(exercise);
 
     await writeState(state);
-    return res.json({ ok: true, weekTemplate: state.weekTemplate });
+    return res.json({ ok: true, weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes });
   } catch (error) {
-    return res.status(500).json({ error: "Errore nello spostamento esercizio" });
+    return res.status(500).json({ error: "Errore nello spostamento allenamento" });
   }
 });
 
