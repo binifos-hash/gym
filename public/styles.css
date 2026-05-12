@@ -366,6 +366,168 @@ select:focus {
   border-color: rgba(232, 255, 71, 0.18);
 }
 
+/* ──── Drag and Drop Styles ──── */
+.day-card-drag-over {
+  background: var(--card);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(232, 255, 71, 0.3), 0 4px 20px rgba(232, 255, 71, 0.15) !important;
+}
+
+.day-card-drop-available {
+  opacity: 0.65;
+  border-color: rgba(232, 255, 71, 0.35);
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.day-exercises-list {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.day-exercise-item {
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: move;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.day-exercise-item:hover {
+  border-color: rgba(232, 255, 71, 0.35);
+  background: rgba(232, 255, 71, 0.05);
+  box-shadow: 0 2px 8px rgba(232, 255, 71, 0.1);
+}
+
+.day-exercise-item:hover .day-exercise-controls {
+  opacity: 1;
+}
+
+.day-exercise-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+  background: rgba(232, 255, 71, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(232, 255, 71, 0.3);
+}
+
+.day-exercise-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.day-exercise-meta {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.day-exercise-controls {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.day-exercise-move-btn {
+  font-size: 11px;
+  padding: 5px 8px;
+  background: rgba(232, 255, 71, 0.1);
+  border: 1px solid rgba(232, 255, 71, 0.25);
+  border-radius: 5px;
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex: 1;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.day-exercise-move-btn:hover {
+  background: rgba(232, 255, 71, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(232, 255, 71, 0.2);
+}
+
+.day-exercise-move-btn:active {
+  transform: scale(0.95);
+}
+
+/* ──── Exercise Move Menu ──── */
+.exercise-move-menu {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  min-width: 220px;
+  animation: pop-in 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.92) translateY(-8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.exercise-move-menu-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.exercise-move-menu-days {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exercise-move-menu-day-btn {
+  padding: 10px 12px;
+  background: rgba(232, 255, 71, 0.08);
+  border: 1px solid rgba(232, 255, 71, 0.18);
+  border-radius: 8px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  text-align: left;
+}
+
+.exercise-move-menu-day-btn:hover {
+  background: rgba(232, 255, 71, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(232, 255, 71, 0.15);
+}
+
+.exercise-move-menu-day-btn:active {
+  transform: scale(0.98);
+}
+
+
 .workout-detail {
   display: grid;
   gap: 18px;

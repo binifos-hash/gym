@@ -1582,17 +1582,70 @@ function renderWeekCards() {
     const exercises = session ? session.exercises : [];
     const visualStatus = getSessionVisualStatus(session, dateKey);
     const isRest = !session || !exercises.length;
+    const templateExercises = (state.weekTemplate[day] || []).map(normalizeExerciseEntry).filter(Boolean);
 
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("div");
     card.className = `day-card day-card-${visualStatus}${dateKey === getTodayKey() ? " day-card-today" : ""}`;
-    card.disabled = isRest;
-    if (!isRest) {
-      card.addEventListener("click", () => openWorkoutDetail(dateKey));
-    }
+    card.dataset.day = day;
+    card.setAttribute("data-drop-zone", day);
+    card.style.cursor = isRest ? "default" : "pointer";
+
+    // Make card droppable
+    card.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      card.classList.add("day-card-drag-over");
+    });
+
+    card.addEventListener("dragleave", (e) => {
+      if (e.target === card) {
+        card.classList.remove("day-card-drag-over");
+      }
+    });
+
+    card.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      card.classList.remove("day-card-drag-over");
+
+      const dragData = e.dataTransfer.getData("application/json");
+      if (!dragData) return;
+
+      try {
+        const { fromDay, exerciseIndex } = JSON.parse(dragData);
+        if (fromDay === day && !e.altKey) {
+          // Same day - no move, just open detail if not rest
+          if (!isRest) openWorkoutDetail(dateKey);
+          return;
+        }
+
+        // Move exercise via API
+        const res = await fetch("/api/move-exercise", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fromDay, toDay: day, exerciseIndex })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          state.weekTemplate = data.weekTemplate;
+          syncWorkoutSessionsRange();
+          renderWeekCards();
+          renderCalendar();
+          renderEditor();
+        } else {
+          alert("Errore nello spostamento");
+        }
+      } catch (err) {
+        console.error("Drop error:", err);
+      }
+    });
 
     const head = document.createElement("div");
     head.className = "day-header";
+    if (!isRest) {
+      head.style.cursor = "pointer";
+      head.addEventListener("click", () => openWorkoutDetail(dateKey));
+    }
 
     const dayLeft = document.createElement("div");
     dayLeft.className = "day-left";
@@ -1641,6 +1694,70 @@ function renderWeekCards() {
     head.appendChild(right);
     card.appendChild(head);
 
+    // Add exercises list below header
+    if (templateExercises.length > 0) {
+      const exercisesContainer = document.createElement("div");
+      exercisesContainer.className = "day-exercises-list";
+
+      templateExercises.forEach((exercise, exerciseIndex) => {
+        const exerciseItem = document.createElement("div");
+        exerciseItem.className = "day-exercise-item";
+        exerciseItem.draggable = true;
+        exerciseItem.dataset.exerciseIndex = exerciseIndex;
+        exerciseItem.dataset.fromDay = day;
+
+        // Drag start
+        exerciseItem.addEventListener("dragstart", (e) => {
+          e.stopPropagation();
+          const dragData = { fromDay: day, exerciseIndex: exerciseIndex };
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+          e.dataTransfer.setData("text/plain", `${exercise.name} → spostare a un altro giorno`);
+          exerciseItem.classList.add("dragging");
+          // Highlight all drop zones
+          document.querySelectorAll(".day-card").forEach((c) => {
+            if (c.dataset.day !== day) c.classList.add("day-card-drop-available");
+          });
+        });
+
+        exerciseItem.addEventListener("dragend", (e) => {
+          e.stopPropagation();
+          exerciseItem.classList.remove("dragging");
+          document.querySelectorAll(".day-card").forEach((c) => {
+            c.classList.remove("day-card-drop-available", "day-card-drag-over");
+          });
+        });
+
+        const exerciseName = document.createElement("span");
+        exerciseName.className = "day-exercise-name";
+        exerciseName.textContent = exercise.name;
+
+        const exerciseMeta = document.createElement("span");
+        exerciseMeta.className = "day-exercise-meta";
+        exerciseMeta.textContent = `${exercise.category}${exercise.supportsWeight && exercise.weight ? ` · ${exercise.weight}kg` : ""}`;
+
+        const exerciseControls = document.createElement("div");
+        exerciseControls.className = "day-exercise-controls";
+
+        const moveBtn = document.createElement("button");
+        moveBtn.className = "day-exercise-move-btn";
+        moveBtn.textContent = "↓ Sposta";
+        moveBtn.type = "button";
+        moveBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openExerciseMoveMenu(day, exerciseIndex, exercise.name, moveBtn);
+        });
+
+        exerciseControls.appendChild(moveBtn);
+        exerciseItem.appendChild(exerciseName);
+        exerciseItem.appendChild(exerciseMeta);
+        exerciseItem.appendChild(exerciseControls);
+        exercisesContainer.appendChild(exerciseItem);
+      });
+
+      card.appendChild(exercisesContainer);
+    }
+
     weekContainerEl.appendChild(card);
   });
 }
@@ -1653,6 +1770,85 @@ function renderEditorDaySelect() {
     option.textContent = day.charAt(0).toUpperCase() + day.slice(1);
     editorDaySelectEl.appendChild(option);
   });
+}
+
+async function moveExerciseToDay(fromDay, exerciseIndex, toDay) {
+  try {
+    const res = await fetch("/api/move-exercise", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromDay, toDay, exerciseIndex })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      state.weekTemplate = data.weekTemplate;
+      syncWorkoutSessionsRange();
+      renderWeekCards();
+      renderCalendar();
+      renderEditor();
+    } else {
+      alert("Errore nello spostamento");
+    }
+  } catch (err) {
+    console.error("Move exercise error:", err);
+    alert("Errore nello spostamento esercizio");
+  }
+}
+
+function openExerciseMoveMenu(fromDay, exerciseIndex, exerciseName, triggerBtn) {
+  // Close existing menu if any
+  const existingMenu = document.querySelector(".exercise-move-menu");
+  if (existingMenu) existingMenu.remove();
+
+  const menu = document.createElement("div");
+  menu.className = "exercise-move-menu";
+
+  const title = document.createElement("div");
+  title.className = "exercise-move-menu-title";
+  title.textContent = `Sposta "${exerciseName}" a:`;
+  menu.appendChild(title);
+
+  const daysList = document.createElement("div");
+  daysList.className = "exercise-move-menu-days";
+
+  days.forEach((targetDay) => {
+    if (targetDay === fromDay) return; // Skip current day
+
+    const dayBtn = document.createElement("button");
+    dayBtn.className = "exercise-move-menu-day-btn";
+    dayBtn.type = "button";
+    dayBtn.textContent = dayLabels[targetDay];
+    dayBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await moveExerciseToDay(fromDay, exerciseIndex, targetDay);
+      menu.remove();
+    });
+
+    daysList.appendChild(dayBtn);
+  });
+
+  menu.appendChild(daysList);
+
+  // Position menu near button
+  const rect = triggerBtn.getBoundingClientRect();
+  menu.style.position = "fixed";
+  menu.style.top = (rect.bottom + 8) + "px";
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 240, rect.left - 40)) + "px";
+
+  document.body.appendChild(menu);
+
+  // Close menu on outside click
+  const closeMenu = (e) => {
+    if (!menu.contains(e.target) && !triggerBtn.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener("click", closeMenu);
+    }
+  };
+
+  setTimeout(() => {
+    document.addEventListener("click", closeMenu);
+  }, 0);
 }
 
 function getAllExercises() {

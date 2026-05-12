@@ -1,0 +1,729 @@
+{
+  "personal": {
+    "diary": [
+      {
+        "date": "2026-05-08",
+        "text": "Non ho voluto spingere troppo per la partita di sabato. Standing per curl continuo a non capirli"
+      },
+      {
+        "date": "2026-05-06",
+        "text": "Inizio perfetto, lat forse un po’ leggere quindi sono passato a 20kg. Gli esercizi dopo mi hanno un po’ spompato, Rosina da fare con 5 catene, tutti i curl da fare con manubri"
+      },
+      {
+        "date": "2026-05-04",
+        "text": "Spompato perché i pesi erano un po’ alla cazzo di cane. Incline press la morte l’ho abbassato a 10kg. Per il resto ci devo fare un po’ l’abitudine. Mi sento bello pompato"
+      },
+      {
+        "date": "2026-04-29",
+        "text": "Allenamento ottimo, energia alta"
+      }
+    ],
+    "metrics": [
+      {
+        "date": "2026-04-29",
+        "weight": 60.2,
+        "muscleMass": 28.4
+      }
+    ],
+    "profileName": "Paolo Bini"
+  },
+  "progress": {},
+  "exerciseMeta": {
+    "Rowing": {
+      "weight": 21
+    },
+    "Arm Curl": {
+      "weight": 12.5
+    },
+    "Leg Press": {
+      "weight": 45
+    },
+    "Biceps Curl": {
+      "weight": 15.5
+    },
+    "Lat Machine": {
+      "weight": 15.5
+    },
+    "Hip Abduction": {
+      "weight": 18.5
+    },
+    "Leg Extension": {
+      "weight": 25
+    },
+    "Glute Kick Back": {
+      "weight": 18.5
+    },
+    "Standing Leg Curl": {
+      "weight": 15
+    },
+    "Lat Machine Inverse": {
+      "weight": 15.5
+    },
+    "Curl bilanciere in piedi": {
+      "weight": 10.5,
+      "videoUrl": "Dai un'occhiata a questo video: \"curl bilanciere in piedi\"",
+      "description": "In piedi, bilanciere in presa supinata (palmi verso l'alto) alla larghezza delle spalle. Braccia distese. Fletti i gomiti alzando il bilanciere verso le spalle, tieni i gomiti fermi a contatto con i fianchi. Abbassa lentamente in 3 secondi. 3 serie × 10 rip · recupero 60s"
+    },
+    "Bulgarian split squat con manubri": {
+      "weight": 5.5
+    }
+  },
+  "weekTemplate": {
+    "lunedi": [
+      {
+        "name": "Front Chest Press",
+        "reps": 10,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Spinta",
+        "restSeconds": 60,
+        "trainingType": "forza",
+        "supportsWeight": true
+      },
+      {
+        "name": "Incline Press",
+        "reps": 10,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Spinta",
+        "restSeconds": 60,
+        "trainingType": "forza",
+        "supportsWeight": true
+      },
+      {
+        "name": "Butterfly",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Spinta",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Seated Front Raise",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Spinta",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Triceps Extension",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Spinta",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Alzate laterali manubri seduto",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Spinta",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      }
+    ],
+    "sabato": [],
+    "giovedi": [],
+    "martedi": [],
+    "venerdi": [
+      {
+        "name": "Leg Press",
+        "reps": 10,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Gambe",
+        "restSeconds": 60,
+        "trainingType": "forza",
+        "supportsWeight": true
+      },
+      {
+        "name": "Leg Extension",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Gambe",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Standing Leg Curl",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Gambe",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Hip Abduction",
+        "reps": 15,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Gambe",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Glute Kick Back",
+        "reps": 15,
+        "sets": 3,
+        "warmup": false,
+        "weight": 20,
+        "category": "Gambe",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Bulgarian split squat con manubri",
+        "reps": 8,
+        "sets": 3,
+        "warmup": false,
+        "weight": null,
+        "category": "Gambe",
+        "restSeconds": 90,
+        "trainingType": "forza",
+        "supportsWeight": true
+      }
+    ],
+    "domenica": [],
+    "mercoledi": [
+      {
+        "name": "Lat Machine",
+        "reps": 10,
+        "sets": 3,
+        "warmup": false,
+        "weight": 20,
+        "category": "Trazione",
+        "restSeconds": 60,
+        "trainingType": "forza",
+        "supportsWeight": true
+      },
+      {
+        "name": "Lat Machine Inverse",
+        "reps": 10,
+        "sets": 3,
+        "warmup": false,
+        "weight": 20,
+        "category": "Trazione",
+        "restSeconds": 60,
+        "trainingType": "forza",
+        "supportsWeight": true
+      },
+      {
+        "name": "Rowing",
+        "reps": 10,
+        "sets": 3,
+        "warmup": false,
+        "weight": 15,
+        "category": "Trazione",
+        "restSeconds": 60,
+        "trainingType": "forza",
+        "supportsWeight": true
+      },
+      {
+        "name": "Biceps Curl",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": 10,
+        "category": "Trazione",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Arm Curl",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": 8,
+        "category": "Trazione",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      },
+      {
+        "name": "Curl bilanciere in piedi",
+        "reps": 12,
+        "sets": 3,
+        "warmup": false,
+        "weight": 10,
+        "category": "Trazione",
+        "restSeconds": 60,
+        "trainingType": "ipertrofia",
+        "supportsWeight": true
+      }
+    ]
+  },
+  "exerciseLibrary": {
+    "toorx_msx50": [
+      "Lat machine avanti presa larga",
+      "Lat machine avanti presa stretta",
+      "Lat machine presa inversa",
+      "Lat machine unilaterale",
+      "Pulldown braccia tese al cavo alto",
+      "Pulley basso presa stretta",
+      "Pulley basso presa larga",
+      "Rematore unilaterale cavo basso",
+      "Face pull cavo alto",
+      "Rear delt row al cavo",
+      "Chest press macchina",
+      "Chest press presa stretta",
+      "Chest fly (pec deck)",
+      "Chest fly un braccio",
+      "Croci ai cavi alti",
+      "Croci ai cavi bassi",
+      "Cable crossover centrale",
+      "Shoulder press stazione alta",
+      "Alzate laterali al cavo",
+      "Alzate frontali al cavo",
+      "Upright row al cavo basso",
+      "Bicipiti curl al cavo basso dritto",
+      "Bicipiti curl al cavo basso corda",
+      "Bicipiti curl unilaterale al cavo",
+      "Bicipiti curl al cavo alto",
+      "Tricipiti pushdown barra",
+      "Tricipiti pushdown corda",
+      "Tricipiti estensioni sopra testa al cavo",
+      "Tricipiti kickback al cavo",
+      "Squat al cavo basso",
+      "Affondi al cavo",
+      "Glute kickback al cavo",
+      "Abduzioni anca al cavo",
+      "Adduzioni anca al cavo",
+      "Leg extension con accessorio caviglia",
+      "Leg curl in piedi con cavigliera al cavo",
+      "Hip hinge al cavo basso",
+      "Calf raise al cavo",
+      "Crunch al cavo alto",
+      "Woodchopper alto-basso",
+      "Woodchopper basso-alto",
+      "Pallof press al cavo",
+      "Russian twist al cavo",
+      "Deltoidi posteriori in croce ai cavi",
+      "Shrug al cavo basso"
+    ],
+    "bench_dumbbell_barbell": [
+      "Panca piana bilanciere",
+      "Panca piana presa stretta",
+      "Panca piana presa larga",
+      "Floor press bilanciere",
+      "Panca piana manubri",
+      "Panca manubri alternata",
+      "Panca manubri presa neutra",
+      "Spinte manubri con fermo",
+      "Pullover manubrio su panca",
+      "Croci manubri su panca piana",
+      "Rematore manubrio su panca",
+      "Rematore bilanciere busto flesso",
+      "Rematore bilanciere presa inversa",
+      "Stacco rumeno bilanciere",
+      "Stacco da terra bilanciere",
+      "Hip thrust bilanciere su panca",
+      "Bulgarian split squat con manubri",
+      "Affondi in camminata con manubri",
+      "Goblet squat con manubrio",
+      "Military press manubri seduto su panca",
+      "Shoulder press bilanciere seduto",
+      "Alzate laterali manubri seduto",
+      "Alzate posteriori manubri su panca",
+      "Curl bilanciere in piedi",
+      "Curl manubri alternati",
+      "Curl concentrato su panca",
+      "French press bilanciere su panca",
+      "Estensioni tricipiti manubrio sopra testa",
+      "Skull crusher bilanciere su panca",
+      "Calf raise con manubri"
+    ]
+  },
+  "workoutSessions": {
+    "2026-05-01": {
+      "day": "venerdi",
+      "date": "2026-05-01",
+      "status": "completed",
+      "exercises": [
+        {
+          "name": "Leg Press",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Leg Extension",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Standing Leg Curl",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Hip Abduction",
+          "reps": 15,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Glute Kick Back",
+          "reps": 15,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Bulgarian split squat con manubri",
+          "reps": 8,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 90,
+          "trainingType": "forza",
+          "supportsWeight": true
+        }
+      ],
+      "completedAt": "2026-05-01T10:00:00.000Z",
+      "trainingType": "Gambe",
+      "activeStartedAt": null,
+      "durationSeconds": 3600
+    },
+    "2026-05-04": {
+      "day": "lunedi",
+      "date": "2026-05-04",
+      "status": "completed",
+      "exercises": [
+        {
+          "name": "Front Chest Press",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Spinta",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Incline Press",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Spinta",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Butterfly",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Spinta",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Seated Front Raise",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Spinta",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Triceps Extension",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Spinta",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Alzate laterali manubri seduto",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": null,
+          "category": "Spinta",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        }
+      ],
+      "completedAt": "2026-05-04T17:09:24.980Z",
+      "trainingType": "Spinta",
+      "activeStartedAt": null,
+      "durationSeconds": 2398
+    },
+    "2026-05-06": {
+      "day": "mercoledi",
+      "date": "2026-05-06",
+      "status": "completed",
+      "exercises": [
+        {
+          "name": "Elittica (Riscaldamento 5 min)",
+          "reps": 5,
+          "sets": 1,
+          "warmup": true,
+          "weight": null,
+          "category": "Riscaldamento",
+          "completed": true,
+          "restSeconds": 0,
+          "trainingType": "Cardio",
+          "supportsWeight": false
+        },
+        {
+          "name": "Lat Machine",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": 15,
+          "category": "Trazione",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Lat Machine Inverse",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": 15,
+          "category": "Trazione",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Rowing",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": 20,
+          "category": "Trazione",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Biceps Curl",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": 15,
+          "category": "Trazione",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Arm Curl",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": 12,
+          "category": "Trazione",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Curl bilanciere in piedi",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": 10,
+          "category": "Trazione",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        }
+      ],
+      "completedAt": "2026-05-06T17:47:24.544Z",
+      "trainingType": "Trazione",
+      "activeStartedAt": null,
+      "durationSeconds": 2583
+    },
+    "2026-05-08": {
+      "day": "venerdi",
+      "date": "2026-05-08",
+      "status": "completed",
+      "exercises": [
+        {
+          "name": "Elittica (Riscaldamento 5 min)",
+          "reps": 5,
+          "sets": 1,
+          "warmup": true,
+          "weight": null,
+          "category": "Riscaldamento",
+          "completed": true,
+          "restSeconds": 0,
+          "trainingType": "Cardio",
+          "supportsWeight": false
+        },
+        {
+          "name": "Leg Press",
+          "reps": 10,
+          "sets": 3,
+          "warmup": false,
+          "weight": 40,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "forza",
+          "supportsWeight": true
+        },
+        {
+          "name": "Leg Extension",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": 20,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Standing Leg Curl",
+          "reps": 12,
+          "sets": 3,
+          "warmup": false,
+          "weight": 15,
+          "category": "Gambe",
+          "completed": true,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Hip Abduction",
+          "reps": 15,
+          "sets": 3,
+          "warmup": false,
+          "weight": 20,
+          "category": "Gambe",
+          "completed": false,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Glute Kick Back",
+          "reps": 15,
+          "sets": 3,
+          "warmup": false,
+          "weight": 20,
+          "category": "Gambe",
+          "completed": false,
+          "restSeconds": 60,
+          "trainingType": "ipertrofia",
+          "supportsWeight": true
+        },
+        {
+          "name": "Bulgarian split squat con manubri",
+          "reps": 8,
+          "sets": 3,
+          "warmup": false,
+          "weight": 6,
+          "category": "Gambe",
+          "completed": false,
+          "restSeconds": 90,
+          "trainingType": "forza",
+          "supportsWeight": true
+        }
+      ],
+      "completedAt": "2026-05-08T13:26:48.957Z",
+      "trainingType": "Gambe",
+      "activeStartedAt": null,
+      "durationSeconds": 1684
+    }
+  },
+  "weekTemplateTypes": {
+    "lunedi": "Spinta",
+    "sabato": null,
+    "giovedi": null,
+    "martedi": null,
+    "venerdi": "Gambe",
+    "domenica": null,
+    "mercoledi": "Trazione"
+  }
+}
