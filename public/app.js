@@ -501,6 +501,7 @@ const metricMuscleEl = document.getElementById("metricMuscle");
 const metricsYAxisEl = document.getElementById("metricsYAxis");
 const metricsChartEl = document.getElementById("metricsChart");
 const metricsChartScrollEl = document.getElementById("metricsChartScroll");
+const metricsLegendEl = document.getElementById("metricsLegend");
 const diaryForm = document.getElementById("diaryForm");
 const diaryInputEl = document.getElementById("diaryInput");
 const diaryListEl = document.getElementById("diaryList");
@@ -2716,33 +2717,45 @@ function renderMetricsChart() {
   const viewportWidth = (metricsChartScrollEl && metricsChartScrollEl.clientWidth) || 860;
   const spacing = 84;
   const height = 300;
-  const topPadding = 28;
+  const topPadding = 30;
   const bottomPadding = 38;
   const leftPadding = 24;
   const rightPadding = 24;
+  const axisW = 56;
   const width = Math.max(viewportWidth, (Math.max(metrics.length, 2) - 1) * spacing + leftPadding + rightPadding);
 
-  plotCanvas.width = width;
-  plotCanvas.height = height;
-  axisCanvas.width = 56;
-  axisCanvas.height = height;
+  // Crisp rendering on high-DPI / retina screens: scale the backing store by
+  // the device pixel ratio while keeping the CSS size in logical pixels.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  plotCanvas.width = Math.round(width * dpr);
+  plotCanvas.height = Math.round(height * dpr);
+  plotCanvas.style.width = width + "px";
+  plotCanvas.style.height = height + "px";
+  plotCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  axisCanvas.width = Math.round(axisW * dpr);
+  axisCanvas.height = Math.round(height * dpr);
+  axisCanvas.style.width = axisW + "px";
+  axisCanvas.style.height = height + "px";
+  axisCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const plotBg = plotCtx.createLinearGradient(0, 0, 0, height);
-  plotBg.addColorStop(0, "#171717");
+  plotBg.addColorStop(0, "#181818");
   plotBg.addColorStop(1, "#0f0f0f");
   plotCtx.fillStyle = plotBg;
   plotCtx.fillRect(0, 0, width, height);
 
   const axisBg = axisCtx.createLinearGradient(0, 0, 0, height);
-  axisBg.addColorStop(0, "#171717");
+  axisBg.addColorStop(0, "#181818");
   axisBg.addColorStop(1, "#0f0f0f");
   axisCtx.fillStyle = axisBg;
-  axisCtx.fillRect(0, 0, axisCanvas.width, height);
+  axisCtx.fillRect(0, 0, axisW, height);
 
   if (metrics.length < 2) {
     plotCtx.fillStyle = "#8d8d8d";
-    plotCtx.font = "14px DM Sans";
+    plotCtx.font = "14px 'DM Sans', sans-serif";
     plotCtx.fillText("Aggiungi almeno 2 misurazioni per visualizzare il grafico", 24, 40);
+    if (metricsLegendEl) metricsLegendEl.innerHTML = "";
     return;
   }
 
@@ -2765,103 +2778,158 @@ function renderMetricsChart() {
     return height - bottomPadding - ratio * (height - topPadding - bottomPadding);
   }
 
+  // Horizontal gridlines (dashed) + Y-axis labels
   for (let index = 0; index <= 4; index += 1) {
     const y = topPadding + (index * (height - topPadding - bottomPadding)) / 4;
     const value = (maxY - ((maxY - minY) * index) / 4).toFixed(1);
 
-    plotCtx.strokeStyle = "#2a2a2a";
+    plotCtx.strokeStyle = "rgba(255, 255, 255, 0.06)";
     plotCtx.lineWidth = 1;
+    plotCtx.setLineDash([4, 6]);
     plotCtx.beginPath();
     plotCtx.moveTo(leftPadding, y);
     plotCtx.lineTo(width - rightPadding, y);
     plotCtx.stroke();
+    plotCtx.setLineDash([]);
 
-    axisCtx.strokeStyle = "#3a3a3a";
-    axisCtx.lineWidth = 1;
-    axisCtx.beginPath();
-    axisCtx.moveTo(axisCanvas.width - 12, y);
-    axisCtx.lineTo(axisCanvas.width - 2, y);
-    axisCtx.stroke();
-
-    axisCtx.fillStyle = "#737373";
-    axisCtx.font = "10px DM Sans";
+    axisCtx.fillStyle = "#7a7a7a";
+    axisCtx.font = "10px 'DM Sans', sans-serif";
     axisCtx.textAlign = "right";
-    axisCtx.fillText(value, axisCanvas.width - 14, y + 3);
+    axisCtx.fillText(value, axisW - 10, y + 3);
   }
 
+  // Date labels along the bottom
   const labelStep = Math.max(1, Math.ceil(parsedMetrics.length / 8));
   parsedMetrics.forEach((metric, index) => {
     if (index % labelStep !== 0 && index !== parsedMetrics.length - 1) {
       return;
     }
-
     const x = projectX(index);
     plotCtx.fillStyle = "#707070";
-    plotCtx.font = "10px DM Sans";
+    plotCtx.font = "10px 'DM Sans', sans-serif";
     plotCtx.textAlign = "center";
     plotCtx.fillText(metric.dateObj.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }), x, height - 14);
   });
-
   plotCtx.textAlign = "left";
 
-  function drawArea(key, colorStart, colorEnd) {
+  function seriesPoints(key) {
+    return parsedMetrics.map((metric, index) => ({ x: projectX(index), y: projectY(metric[key]) }));
+  }
+
+  // Smooth (Catmull-Rom → cubic bezier) path through the points.
+  // Adds segments to the current path; does not begin or close it.
+  function traceSmooth(pts) {
+    plotCtx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      plotCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
+  }
+
+  function drawArea(pts, colorStart, colorEnd) {
     const gradient = plotCtx.createLinearGradient(0, topPadding, 0, height - bottomPadding);
     gradient.addColorStop(0, colorStart);
     gradient.addColorStop(1, colorEnd);
 
     plotCtx.beginPath();
-    parsedMetrics.forEach((metric, index) => {
-      const x = projectX(index);
-      const y = projectY(metric[key]);
-      if (index === 0) {
-        plotCtx.moveTo(x, y);
-      } else {
-        plotCtx.lineTo(x, y);
-      }
-    });
-
-    plotCtx.lineTo(projectX(parsedMetrics.length - 1), height - bottomPadding);
-    plotCtx.lineTo(projectX(0), height - bottomPadding);
+    traceSmooth(pts);
+    plotCtx.lineTo(pts[pts.length - 1].x, height - bottomPadding);
+    plotCtx.lineTo(pts[0].x, height - bottomPadding);
     plotCtx.closePath();
     plotCtx.fillStyle = gradient;
     plotCtx.fill();
   }
 
-  function drawSeries(key, color) {
+  function drawSeries(pts, color) {
+    // Soft glow underlay for the line
+    plotCtx.save();
+    plotCtx.shadowColor = color;
+    plotCtx.shadowBlur = 10;
     plotCtx.strokeStyle = color;
     plotCtx.lineWidth = 2.5;
+    plotCtx.lineJoin = "round";
+    plotCtx.lineCap = "round";
     plotCtx.beginPath();
-    parsedMetrics.forEach((metric, index) => {
-      const x = projectX(index);
-      const y = projectY(metric[key]);
-      if (index === 0) {
-        plotCtx.moveTo(x, y);
-      } else {
-        plotCtx.lineTo(x, y);
-      }
-    });
+    traceSmooth(pts);
     plotCtx.stroke();
+    plotCtx.restore();
 
-    parsedMetrics.forEach((metric, index) => {
-      const x = projectX(index);
-      const y = projectY(metric[key]);
+    pts.forEach((p, index) => {
+      const isLast = index === pts.length - 1;
+      const r = isLast ? 5 : 3.2;
+
+      // Halo
       plotCtx.beginPath();
       plotCtx.fillStyle = color;
-      plotCtx.arc(x, y, 3.5, 0, Math.PI * 2);
+      plotCtx.globalAlpha = 0.18;
+      plotCtx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
       plotCtx.fill();
+      plotCtx.globalAlpha = 1;
+
+      // Dot
+      plotCtx.beginPath();
+      plotCtx.fillStyle = color;
+      plotCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      plotCtx.fill();
+
+      // Bright core
+      plotCtx.beginPath();
+      plotCtx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      plotCtx.arc(p.x, p.y, isLast ? 2 : 1.3, 0, Math.PI * 2);
+      plotCtx.fill();
+
+      // Ring on the latest point
+      if (isLast) {
+        plotCtx.beginPath();
+        plotCtx.strokeStyle = color;
+        plotCtx.lineWidth = 1.5;
+        plotCtx.arc(p.x, p.y, r + 3, 0, Math.PI * 2);
+        plotCtx.stroke();
+      }
     });
   }
 
-  drawArea("weight", "rgba(232, 255, 71, 0.16)", "rgba(232, 255, 71, 0.02)");
-  drawArea("muscleMass", "rgba(255, 92, 53, 0.14)", "rgba(255, 92, 53, 0.02)");
-  drawSeries("weight", "#e8ff47");
-  drawSeries("muscleMass", "#ff5c35");
+  const weightPts = seriesPoints("weight");
+  const musclePts = seriesPoints("muscleMass");
 
-  plotCtx.font = "11px DM Sans";
-  plotCtx.fillStyle = "#e8ff47";
-  plotCtx.fillText("Peso", width - 140, 20);
-  plotCtx.fillStyle = "#ff5c35";
-  plotCtx.fillText("Massa muscolare", width - 95, 20);
+  drawArea(weightPts, "rgba(232, 255, 71, 0.18)", "rgba(232, 255, 71, 0.01)");
+  drawArea(musclePts, "rgba(255, 92, 53, 0.16)", "rgba(255, 92, 53, 0.01)");
+  drawSeries(weightPts, "#e8ff47");
+  drawSeries(musclePts, "#ff5c35");
+
+  // HTML legend with current values + delta since first measurement
+  // (stays put instead of scrolling away with the canvas)
+  if (metricsLegendEl) {
+    const latest = parsedMetrics[parsedMetrics.length - 1];
+    const first = parsedMetrics[0];
+    const deltaTag = (now, then) => {
+      const d = now - then;
+      const cls = d >= 0 ? "up" : "down";
+      const sign = d > 0 ? "+" : "";
+      return `<span class="metrics-legend-delta ${cls}">${sign}${d.toFixed(1)} kg</span>`;
+    };
+    metricsLegendEl.innerHTML = `
+      <div class="metrics-legend-item">
+        <span class="metrics-legend-dot" style="background:#e8ff47"></span>
+        <span class="metrics-legend-label">Peso</span>
+        <span class="metrics-legend-value">${latest.weight.toFixed(1)} kg</span>
+        ${deltaTag(latest.weight, first.weight)}
+      </div>
+      <div class="metrics-legend-item">
+        <span class="metrics-legend-dot" style="background:#ff5c35"></span>
+        <span class="metrics-legend-label">Massa muscolare</span>
+        <span class="metrics-legend-value">${latest.muscleMass.toFixed(1)} kg</span>
+        ${deltaTag(latest.muscleMass, first.muscleMass)}
+      </div>
+    `;
+  }
 
   if (metricsChartScrollEl && parsedMetrics.length) {
     const latestDate = parsedMetrics[parsedMetrics.length - 1].dateObj;

@@ -2039,6 +2039,58 @@ textarea {
   display: none;
 }
 
+.metrics-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-bottom: 14px;
+}
+
+.metrics-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metrics-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.metrics-legend-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.metrics-legend-value {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  line-height: 1;
+}
+
+.metrics-legend-delta {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.metrics-legend-delta.up {
+  color: #71f0a7;
+  background: rgba(113, 240, 167, 0.14);
+}
+
+.metrics-legend-delta.down {
+  color: #ff8a70;
+  background: rgba(255, 92, 53, 0.14);
+}
+
 .metrics-chart-shell {
   width: 100%;
   display: grid;
