@@ -2662,21 +2662,32 @@ function getPersonalWorkoutStreak() {
     date.setDate(today.getDate() - offset);
     const dateKey = formatIsoDate(date);
     const session = state.workoutSessions[dateKey];
+    const isToday = dateKey === todayKey;
 
-    if (!session || !session.exercises || !session.exercises.length) {
-      continue;
+    // A recorded session for this day
+    if (session && session.exercises && session.exercises.length) {
+      if (session.status === "completed") {
+        streak += 1;
+        continue;
+      }
+      // Today still planned / in progress doesn't break the streak yet
+      if (isToday) continue;
+      // A past workout left unfinished counts as missed → streak resets
+      break;
     }
 
-    if (session.status === "completed") {
-      streak += 1;
-      continue;
+    // No stored session: today with nothing started yet is fine
+    if (isToday) continue;
+
+    // Missed sessions are purged server-side, so detect a scheduled-but-skipped
+    // day from the weekly template instead.
+    const scheduled = getTemplateExercisesForDate(dateKey);
+    if (scheduled && scheduled.length) {
+      // A workout was planned for this past day but never completed → missed
+      break;
     }
 
-    if (dateKey === todayKey && (session.status === "planned" || session.status === "in_progress" || session.status === "paused")) {
-      continue;
-    }
-
-    break;
+    // Rest day (nothing scheduled) → does not affect the streak
   }
 
   return streak;
