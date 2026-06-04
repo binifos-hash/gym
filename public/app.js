@@ -1574,26 +1574,77 @@ function renderWeekCards() {
   const { monday } = getWeekContext();
   weekContainerEl.innerHTML = "";
 
+  // Shared across all cards in this render pass: which weekday is currently being dragged
+  let draggingFromDay = null;
+
+  const STATUS_LABELS = {
+    done: "Completato",
+    missed: "Perso",
+    paused: "In pausa",
+    live: "In corso",
+    planned: "Programmato",
+    rest: "Riposo"
+  };
+
+  const clearDropHints = () => {
+    document.querySelectorAll(".day-card").forEach((c) => {
+      c.classList.remove("day-card-drop-available", "day-card-drag-over", "dragging");
+    });
+  };
+
+  const beginDrag = (fromDay, e, sourceEl) => {
+    draggingFromDay = fromDay;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify({ fromDay }));
+    sourceEl.classList.add("dragging");
+    document.querySelectorAll(".day-card").forEach((c) => {
+      if (c.dataset.day !== fromDay) c.classList.add("day-card-drop-available");
+    });
+  };
+
   days.forEach((day, index) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
     const dateKey = formatIsoDate(date);
     const session = getOrBuildSession(dateKey);
-    const exercises = session ? session.exercises : [];
-    const visualStatus = getSessionVisualStatus(session, dateKey);
-    const isRest = !session || !exercises.length;
+    const templateExercises = (state.weekTemplate[day] || [])
+      .map(normalizeExerciseEntry)
+      .filter(Boolean);
+    const hasTemplate = templateExercises.length > 0;
+    const isPast = dateKey < getTodayKey();
+
+    // What to display: a real session if one exists, otherwise the recurring template
+    const exercises = session ? session.exercises : (hasTemplate ? templateExercises : []);
+
+    // A past templated day that was never recorded still counts visually as "missed"
+    let visualStatus;
+    if (session) {
+      visualStatus = getSessionVisualStatus(session, dateKey);
+    } else if (hasTemplate && isPast) {
+      visualStatus = "missed";
+    } else {
+      visualStatus = "rest";
+    }
+
+    const isRest = !exercises.length;
+    const isCompleted = !!(session && session.status === "completed");
+    // Movable whenever there's a workout planned for that weekday and it isn't already done
+    const canMove = hasTemplate && !isCompleted;
+    const canOpenDetail = !isRest && (session || (hasTemplate && !isPast));
 
     const card = document.createElement("div");
-    card.className = `day-card day-card-${visualStatus}${dateKey === getTodayKey() ? " day-card-today" : ""}`;
+    card.className = `day-card day-card-${visualStatus}`
+      + (dateKey === getTodayKey() ? " day-card-today" : "")
+      + (isCompleted ? " day-card-locked" : "");
     card.dataset.day = day;
     card.setAttribute("data-drop-zone", day);
 
-    // Make card droppable for entire workout
+    // Any day can receive a moved workout (rest days included), except the dragged one itself
     card.addEventListener("dragover", (e) => {
-      if (!isRest) {
-        e.preventDefault();
-        card.classList.add("day-card-drag-over");
-      }
+      if (!draggingFromDay || draggingFromDay === day) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      card.classList.add("day-card-drag-over");
     });
 
     card.addEventListener("dragleave", (e) => {
@@ -1607,40 +1658,19 @@ function renderWeekCards() {
       e.stopPropagation();
       card.classList.remove("day-card-drag-over");
 
+      let fromDay = draggingFromDay;
       const dragData = e.dataTransfer.getData("application/json");
-      if (!dragData) return;
-
-      try {
-        const { fromDay } = JSON.parse(dragData);
-        if (fromDay === day) return; // Same day
-
-        // Move entire workout via API
-        const res = await fetch("/api/move-exercise", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fromDay, toDay: day })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          state.weekTemplate = data.weekTemplate;
-          state.weekTemplateTypes = data.weekTemplateTypes;
-          syncWorkoutSessionsRange();
-          renderWeekCards();
-          renderCalendar();
-          renderEditor();
-        } else {
-          alert("Errore nello spostamento");
-        }
-      } catch (err) {
-        console.error("Drop error:", err);
+      if (dragData) {
+        try { fromDay = JSON.parse(dragData).fromDay || fromDay; } catch (err) { /* ignore */ }
       }
+      if (!fromDay || fromDay === day) return;
+      await moveWorkoutToDay(fromDay, day);
     });
 
     const head = document.createElement("div");
     head.className = "day-header";
 
-    if (!isRest) {
+    if (canOpenDetail) {
       head.style.cursor = "pointer";
       head.addEventListener("click", () => openWorkoutDetail(dateKey));
     }
@@ -1678,10 +1708,10 @@ function renderWeekCards() {
 
     const badge = document.createElement("span");
     badge.className = `day-badge day-badge-${visualStatus}`;
-    badge.textContent = getSessionStatusLabel(session, dateKey);
+    badge.textContent = STATUS_LABELS[visualStatus] || "Riposo";
     right.appendChild(badge);
 
-    if (!isRest && session.status === "completed") {
+    if (isCompleted) {
       const timeChip = document.createElement("span");
       timeChip.className = "day-time-chip";
       timeChip.textContent = formatDuration(session.durationSeconds);
@@ -1692,83 +1722,63 @@ function renderWeekCards() {
     head.appendChild(right);
     card.appendChild(head);
 
-    // Add move button and exercise count for workouts
+    // Footer with exercise count + move affordance (or a lock when completed)
     if (!isRest) {
       const workoutFooter = document.createElement("div");
       workoutFooter.className = "day-workout-footer";
 
+      const count = hasTemplate ? templateExercises.length : exercises.length;
       const exerciseCount = document.createElement("span");
       exerciseCount.className = "day-exercise-count";
-      const templateExercises = (state.weekTemplate[day] || []).map(normalizeExerciseEntry).filter(Boolean);
-      exerciseCount.textContent = `${templateExercises.length} esercizio${templateExercises.length !== 1 ? "i" : ""}`;
-
-      const moveBtn = document.createElement("button");
-      moveBtn.className = "day-move-btn";
-      moveBtn.type = "button";
-      moveBtn.draggable = true;
-      moveBtn.textContent = "⬇ Sposta allenamento";
-
-      moveBtn.addEventListener("dragstart", (e) => {
-        e.stopPropagation();
-        const dragData = { fromDay: day };
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("application/json", JSON.stringify(dragData));
-        moveBtn.classList.add("dragging");
-        // Highlight all drop zones except current day
-        document.querySelectorAll(".day-card").forEach((c) => {
-          const cDay = c.dataset.day;
-          const cIsRest = !state.weekTemplate[cDay] || !state.weekTemplate[cDay].length;
-          if (c.dataset.day !== day) {
-            if (!cIsRest || (state.weekTemplate[cDay] && state.weekTemplate[cDay].length)) {
-              c.classList.add("day-card-drop-available");
-            }
-          }
-        });
-      });
-
-      moveBtn.addEventListener("dragend", (e) => {
-        e.stopPropagation();
-        moveBtn.classList.remove("dragging");
-        document.querySelectorAll(".day-card").forEach((c) => {
-          c.classList.remove("day-card-drop-available", "day-card-drag-over");
-        });
-      });
-
-      moveBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openWorkoutMoveMenu(day, moveBtn);
-      });
-
+      exerciseCount.textContent = `${count} esercizio${count !== 1 ? "i" : ""}`;
       workoutFooter.appendChild(exerciseCount);
-      workoutFooter.appendChild(moveBtn);
+
+      if (canMove) {
+        const moveBtn = document.createElement("button");
+        moveBtn.className = "day-move-btn";
+        moveBtn.type = "button";
+        moveBtn.draggable = true;
+        moveBtn.innerHTML = `<span class="day-move-btn-icon" aria-hidden="true">⇄</span> Sposta`;
+        moveBtn.title = "Sposta o scambia l'allenamento con un altro giorno";
+
+        moveBtn.addEventListener("dragstart", (e) => {
+          e.stopPropagation();
+          beginDrag(day, e, moveBtn);
+        });
+        moveBtn.addEventListener("dragend", (e) => {
+          e.stopPropagation();
+          draggingFromDay = null;
+          clearDropHints();
+        });
+        moveBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openWorkoutMoveMenu(day, moveBtn);
+        });
+
+        workoutFooter.appendChild(moveBtn);
+      } else if (isCompleted) {
+        const lock = document.createElement("span");
+        lock.className = "day-move-locked";
+        lock.innerHTML = `<span aria-hidden="true">🔒</span> Completato`;
+        lock.title = "Un allenamento completato non può essere spostato";
+        workoutFooter.appendChild(lock);
+      }
+
       card.appendChild(workoutFooter);
     }
 
-    // Make entire card draggable if it has a workout
-    if (!isRest) {
+    // Whole card draggable (grab from the body/header) when the workout can be moved
+    if (canMove) {
       card.draggable = true;
       card.addEventListener("dragstart", (e) => {
-        if (e.target !== card && !e.target.classList.contains("day-move-btn")) {
-          return; // Only drag from header or move button
-        }
+        if (e.target.closest && e.target.closest(".day-move-btn")) return; // handled by the button
         e.stopPropagation();
-        const dragData = { fromDay: day };
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("application/json", JSON.stringify(dragData));
-        card.classList.add("dragging");
-        document.querySelectorAll(".day-card").forEach((c) => {
-          if (c.dataset.day !== day) {
-            c.classList.add("day-card-drop-available");
-          }
-        });
+        beginDrag(day, e, card);
       });
-
       card.addEventListener("dragend", (e) => {
         e.stopPropagation();
-        card.classList.remove("dragging");
-        document.querySelectorAll(".day-card").forEach((c) => {
-          c.classList.remove("day-card-drop-available", "day-card-drag-over");
-        });
+        draggingFromDay = null;
+        clearDropHints();
       });
     }
 
@@ -1786,7 +1796,26 @@ function renderEditorDaySelect() {
   });
 }
 
+let toastTimeoutId = null;
+function showToast(message) {
+  let toast = document.getElementById("gymToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "gymToast";
+    toast.className = "gym-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  // restart the show animation even if a toast is already visible
+  toast.classList.remove("gym-toast-show");
+  void toast.offsetWidth;
+  toast.classList.add("gym-toast-show");
+  if (toastTimeoutId) clearTimeout(toastTimeoutId);
+  toastTimeoutId = setTimeout(() => toast.classList.remove("gym-toast-show"), 2600);
+}
+
 async function moveWorkoutToDay(fromDay, toDay) {
+  const targetHadWorkout = (state.weekTemplate[toDay] || []).length > 0;
   try {
     const res = await fetch("/api/move-exercise", {
       method: "PUT",
@@ -1802,6 +1831,9 @@ async function moveWorkoutToDay(fromDay, toDay) {
       renderWeekCards();
       renderCalendar();
       renderEditor();
+      showToast(targetHadWorkout
+        ? `Scambiato con ${dayLabels[toDay]}`
+        : `Spostato a ${dayLabels[toDay]}`);
     } else {
       alert("Errore nello spostamento");
     }
@@ -1821,7 +1853,7 @@ function openWorkoutMoveMenu(fromDay, triggerBtn) {
 
   const title = document.createElement("div");
   title.className = "workout-move-menu-title";
-  title.textContent = `Sposta allenamento a:`;
+  title.textContent = "Sposta o scambia con:";
   menu.appendChild(title);
 
   const daysList = document.createElement("div");
@@ -1830,14 +1862,30 @@ function openWorkoutMoveMenu(fromDay, triggerBtn) {
   days.forEach((targetDay) => {
     if (targetDay === fromDay) return; // Skip current day
 
+    const targetHasWorkout = (state.weekTemplate[targetDay] || []).length > 0;
+    const targetType = (state.weekTemplateTypes && state.weekTemplateTypes[targetDay]) || null;
+
     const dayBtn = document.createElement("button");
-    dayBtn.className = "workout-move-menu-day-btn";
+    dayBtn.className = `workout-move-menu-day-btn ${targetHasWorkout ? "is-swap" : "is-empty"}`;
     dayBtn.type = "button";
-    dayBtn.textContent = dayLabels[targetDay];
+
+    const main = document.createElement("span");
+    main.className = "wm-day-name";
+    main.textContent = dayLabels[targetDay];
+
+    const sub = document.createElement("span");
+    sub.className = "wm-day-sub";
+    sub.textContent = targetHasWorkout
+      ? `Scambia · ${targetType || "Allenamento"}`
+      : "Giorno libero";
+
+    dayBtn.appendChild(main);
+    dayBtn.appendChild(sub);
+
     dayBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      await moveWorkoutToDay(fromDay, targetDay);
       menu.remove();
+      await moveWorkoutToDay(fromDay, targetDay);
     });
 
     daysList.appendChild(dayBtn);

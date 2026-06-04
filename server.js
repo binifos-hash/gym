@@ -337,23 +337,30 @@ app.put("/api/move-exercise", async (req, res) => {
 
     const state = await readState();
 
-    // Scambia interi allenamenti tra due giorni
-    const tempTemplate = state.weekTemplate[fromDay];
-    const tempType = state.weekTemplateTypes?.[fromDay];
-
-    state.weekTemplate[fromDay] = state.weekTemplate[toDay] || [];
-    state.weekTemplate[toDay] = tempTemplate || [];
-
-    if (tempType) {
-      state.weekTemplateTypes[toDay] = tempType;
-      delete state.weekTemplateTypes[fromDay];
-    } else {
-      delete state.weekTemplateTypes[toDay];
+    if (!state.weekTemplateTypes || typeof state.weekTemplateTypes !== "object") {
+      state.weekTemplateTypes = {};
     }
 
-    const toType = state.weekTemplateTypes?.[fromDay];
-    if (!toType) {
+    // Scambia interi allenamenti tra due giorni (template + tipo) in modo simmetrico.
+    // Funziona sia spostando su un giorno di riposo sia scambiando due giorni pieni.
+    const fromTemplate = state.weekTemplate[fromDay] || [];
+    const toTemplate = state.weekTemplate[toDay] || [];
+    const fromType = state.weekTemplateTypes[fromDay] || null;
+    const toType = state.weekTemplateTypes[toDay] || null;
+
+    state.weekTemplate[fromDay] = toTemplate;
+    state.weekTemplate[toDay] = fromTemplate;
+
+    if (toType) {
+      state.weekTemplateTypes[fromDay] = toType;
+    } else {
       delete state.weekTemplateTypes[fromDay];
+    }
+
+    if (fromType) {
+      state.weekTemplateTypes[toDay] = fromType;
+    } else {
+      delete state.weekTemplateTypes[toDay];
     }
 
     await writeState(state);
