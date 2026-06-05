@@ -1,3 +1,22 @@
+// ── Auth token injection ─────────────────────────────────────
+// When the backend requires a password, the token is stored locally and
+// attached to every same-origin /api/* request via the x-app-token header.
+const APP_TOKEN_KEY = "gymplanner_token";
+(function installAuthFetch() {
+  const origFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    let token = null;
+    try { token = localStorage.getItem(APP_TOKEN_KEY); } catch (e) { /* ignore */ }
+    if (token && typeof url === "string" && url.includes("/api/")) {
+      const opts = Object.assign({}, init);
+      opts.headers = Object.assign({}, opts.headers, { "x-app-token": token });
+      return origFetch(input, opts);
+    }
+    return origFetch(input, init);
+  };
+})();
+
 const days = [
   "lunedi",
   "martedi",
@@ -498,6 +517,19 @@ const metricForm = document.getElementById("metricForm");
 const metricDateEl = document.getElementById("metricDate");
 const metricWeightEl = document.getElementById("metricWeight");
 const metricMuscleEl = document.getElementById("metricMuscle");
+const metricWaistEl = document.getElementById("metricWaist");
+const metricChestEl = document.getElementById("metricChest");
+const metricArmEl = document.getElementById("metricArm");
+const metricThighEl = document.getElementById("metricThigh");
+const measurementsSummaryEl = document.getElementById("measurementsSummary");
+const addPhotoBtn = document.getElementById("addPhotoBtn");
+const photoInputEl = document.getElementById("photoInput");
+const photoGridEl = document.getElementById("photoGrid");
+const photoViewerEl = document.getElementById("photoViewer");
+const photoViewerImgEl = document.getElementById("photoViewerImg");
+const photoViewerDateEl = document.getElementById("photoViewerDate");
+const photoViewerCloseEl = document.getElementById("photoViewerClose");
+const photoViewerDeleteEl = document.getElementById("photoViewerDelete");
 const metricsYAxisEl = document.getElementById("metricsYAxis");
 const metricsChartEl = document.getElementById("metricsChart");
 const metricsChartScrollEl = document.getElementById("metricsChartScroll");
@@ -523,6 +555,20 @@ const closeExerciseInfoBtnEl = document.getElementById("closeExerciseInfoBtn");
 const exerciseInfoSetsValEl = document.getElementById("exerciseInfoSetsVal");
 const exerciseInfoRepsValEl = document.getElementById("exerciseInfoRepsVal");
 const exerciseInfoSetsWrapEl = document.getElementById("exerciseInfoSetsWrap");
+const exerciseInfoProgressionWrapEl = document.getElementById("exerciseInfoProgressionWrap");
+const exerciseInfoPrEl = document.getElementById("exerciseInfoPr");
+const exerciseInfoChartEl = document.getElementById("exerciseInfoChart");
+
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const openPlateCalcBtn = document.getElementById("openPlateCalcBtn");
+const closePlateCalcBtn = document.getElementById("closePlateCalcBtn");
+const plateCalcModalEl = document.getElementById("plateCalcModal");
+const plateTargetWeightEl = document.getElementById("plateTargetWeight");
+const plateBarWeightEl = document.getElementById("plateBarWeight");
+const plateResultEl = document.getElementById("plateResult");
+const exportDataBtn = document.getElementById("exportDataBtn");
+const importDataBtn = document.getElementById("importDataBtn");
+const importDataInputEl = document.getElementById("importDataInput");
 
 function moveNavIndicator(btn) {
   if (!navIndicator || !btn) return;
@@ -593,6 +639,156 @@ function isToorxExercise(name) {
     state.exerciseLibrary.toorx_msx50.includes(name);
 }
 
+// Walks every completed session and collects this exercise's logged performance,
+// one data point per session date, sorted chronologically.
+function getExerciseHistory(name) {
+  const points = [];
+  Object.values(state.workoutSessions || {}).forEach((session) => {
+    if (!session || session.status !== "completed" || !Array.isArray(session.exercises)) return;
+    const ex = session.exercises.find((e) => e && e.name === name && !e.warmup);
+    if (!ex) return;
+    const summary = summarizeExerciseSets(ex);
+    if (!summary.loggedCount) return;
+    points.push({ date: session.date, ...summary });
+  });
+  points.sort((a, b) => a.date.localeCompare(b.date));
+  return points;
+}
+
+// Renders the personal-record badges and the progression line chart inside the
+// exercise info panel. Hidden when there is no logged history yet.
+function renderExerciseProgression(name) {
+  if (!exerciseInfoProgressionWrapEl || !exerciseInfoChartEl || !exerciseInfoPrEl) return;
+
+  const history = getExerciseHistory(name);
+  if (!history.length) {
+    exerciseInfoProgressionWrapEl.classList.add("hidden");
+    return;
+  }
+  exerciseInfoProgressionWrapEl.classList.remove("hidden");
+
+  const hasWeight = history.some((p) => p.hasWeight);
+  const prTop = history.reduce((m, p) => Math.max(m, p.topWeight || 0), 0);
+  const prOneRm = history.reduce((m, p) => Math.max(m, p.bestOneRm || 0), 0);
+  const prVolume = history.reduce((m, p) => Math.max(m, p.totalVolume || 0), 0);
+
+  exerciseInfoPrEl.innerHTML = "";
+  const badges = [];
+  if (hasWeight) {
+    badges.push(["Record peso", `${prTop} kg`]);
+    if (prOneRm) badges.push(["1RM stimato", `~${Math.round(prOneRm)} kg`]);
+    badges.push(["Volume max", `${Math.round(prVolume)} kg`]);
+  } else {
+    badges.push(["Rip. max (sessione)", `${Math.round(prVolume)}`]);
+  }
+  badges.push(["Sessioni", String(history.length)]);
+  badges.forEach(([label, value]) => {
+    const badge = document.createElement("div");
+    badge.className = "pr-badge";
+    badge.innerHTML = `<span class="pr-badge-val">${value}</span><span class="pr-badge-label">${label}</span>`;
+    exerciseInfoPrEl.appendChild(badge);
+  });
+
+  // Plot estimated 1RM when weighted, otherwise total volume (reps).
+  const series = history.map((p) => (hasWeight ? (p.bestOneRm || p.topWeight || 0) : p.totalVolume));
+  drawProgressionChart(exerciseInfoChartEl, history.map((p) => p.date), series, hasWeight ? "kg" : "rip");
+}
+
+function drawProgressionChart(canvas, dates, values, unit) {
+  const ctx = canvas.getContext("2d");
+  const cssWidth = canvas.clientWidth || 320;
+  const cssHeight = 150;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  canvas.style.height = cssHeight + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const padL = 38;
+  const padR = 12;
+  const padT = 16;
+  const padB = 24;
+
+  if (values.length < 2) {
+    ctx.fillStyle = "#8d8d8d";
+    ctx.font = "12px 'DM Sans', sans-serif";
+    ctx.fillText("Servono almeno 2 sessioni registrate", padL - 30, cssHeight / 2);
+    return;
+  }
+
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  const lo = Math.floor(minV - (maxV - minV) * 0.15 - 0.5);
+  const hi = Math.ceil(maxV + (maxV - minV) * 0.15 + 0.5);
+  const span = hi - lo || 1;
+
+  const px = (i) => padL + (i * (cssWidth - padL - padR)) / (values.length - 1);
+  const py = (v) => cssHeight - padB - ((v - lo) / span) * (cssHeight - padT - padB);
+
+  // Gridlines + Y labels
+  ctx.font = "10px 'DM Sans', sans-serif";
+  ctx.textAlign = "right";
+  for (let i = 0; i <= 3; i += 1) {
+    const y = padT + (i * (cssHeight - padT - padB)) / 3;
+    const val = (hi - (span * i) / 3).toFixed(0);
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(cssWidth - padR, y);
+    ctx.stroke();
+    ctx.fillStyle = "#7a7a7a";
+    ctx.fillText(`${val}`, padL - 6, y + 3);
+  }
+
+  // Area + line
+  const accent = "#e8ff47";
+  ctx.beginPath();
+  values.forEach((v, i) => {
+    const x = px(i);
+    const y = py(v);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineTo(px(values.length - 1), cssHeight - padB);
+  ctx.lineTo(px(0), cssHeight - padB);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, cssHeight - padB);
+  grad.addColorStop(0, "rgba(232,255,71,0.22)");
+  grad.addColorStop(1, "rgba(232,255,71,0)");
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  values.forEach((v, i) => {
+    const x = px(i);
+    const y = py(v);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Points
+  values.forEach((v, i) => {
+    ctx.beginPath();
+    ctx.arc(px(i), py(v), 3, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+  });
+
+  // Last value label
+  const lastX = px(values.length - 1);
+  const lastY = py(values[values.length - 1]);
+  ctx.fillStyle = "#f0f0f0";
+  ctx.font = "11px 'DM Sans', sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(`${Math.round(values[values.length - 1])} ${unit}`, lastX - 2, lastY - 8);
+}
+
 function openExerciseInfoPanel(name, sets, reps) {
   exerciseInfoPanelCurrentName = name;
   const saved = (state.exerciseMeta && state.exerciseMeta[name]) || {};
@@ -639,6 +835,9 @@ function openExerciseInfoPanel(name, sets, reps) {
   exerciseInfoVideoUrlEl.value = displayUrl;
   updateExerciseInfoVideo(displayUrl);
   exerciseInfoPanelEl.classList.remove("hidden");
+
+  // Render progression after the panel is visible so the canvas has a layout width.
+  requestAnimationFrame(() => renderExerciseProgression(name));
 }
 
 function closeExerciseInfoPanel() {
@@ -808,11 +1007,82 @@ function getAverageDurationForTrainingType(trainingType, dateKey) {
   return durations.reduce((sum, seconds) => sum + seconds, 0) / durations.length;
 }
 
+// Distills an exercise's per-set log into the signals used by the progression
+// engine: the weight actually used and how the achieved reps compare to target.
+// Returns null when nothing meaningful was logged.
+function getLoggedPerformance(exercise) {
+  const sets = Array.isArray(exercise.loggedSets)
+    ? exercise.loggedSets.filter((s) => Number.isFinite(Number(s.reps)) && Number(s.reps) > 0)
+    : [];
+  if (!sets.length) return null;
+
+  const targetReps = Number.isFinite(exercise.reps) && exercise.reps > 0 ? exercise.reps : 10;
+  let weightSum = 0;
+  let weightCount = 0;
+  let topWeight = 0;
+  let ratioSum = 0;
+  let allHitTarget = true;
+
+  sets.forEach((s) => {
+    const reps = Number(s.reps);
+    const weight = Number(s.weight);
+    if (Number.isFinite(weight) && weight > 0) {
+      weightSum += weight;
+      weightCount += 1;
+      if (weight > topWeight) topWeight = weight;
+    }
+    ratioSum += reps / targetReps;
+    if (reps < targetReps) allHitTarget = false;
+  });
+
+  return {
+    workingWeight: weightCount ? weightSum / weightCount : null,
+    topWeight,
+    avgRepsRatio: ratioSum / sets.length,
+    allHitTarget,
+    targetReps,
+    loggedSets: sets.length
+  };
+}
+
 function computeNextWeightSuggestion(exercise, session, sessionCompletionRate) {
   if (!exercise || !exercise.supportsWeight) {
     return null;
   }
 
+  const perf = getLoggedPerformance(exercise);
+
+  // ── Preferred path: real per-set data ("double progression") ──
+  // Increase the load only when every working set reached the target reps;
+  // hold when close; back off when reps fell well short. The base weight is
+  // the load actually used, not the planned one.
+  if (perf && (perf.workingWeight || perf.topWeight)) {
+    const baseWeight = perf.workingWeight || perf.topWeight;
+    if (!Number.isFinite(baseWeight) || baseWeight <= 0) return null;
+
+    let factor;
+    if (perf.allHitTarget) {
+      // Bigger jump when comfortably over target reps, smaller when just on it.
+      factor = perf.avgRepsRatio >= 1.25 ? 0.05 : 0.025;
+    } else if (perf.avgRepsRatio >= 0.85) {
+      factor = 0; // close enough — repeat the same weight
+    } else {
+      factor = -0.05; // missed reps clearly — deload a touch
+    }
+
+    // Secondary nudge from recent completion trend.
+    const trend = getExerciseCompletionTrend(exercise.name, session.date, 4);
+    if (trend <= -2 && factor > 0) factor -= 0.015;
+
+    const suggested = roundToStep(Math.max(0.5, baseWeight * (1 + factor)), 0.5);
+    if (!Number.isFinite(suggested)) return null;
+    // Skip no-op suggestions (same as base) to avoid noisy review cards.
+    if (factor === 0 && Math.abs(suggested - baseWeight) < 0.25) return null;
+
+    return { current: roundToStep(baseWeight, 0.5), suggested, delta: factor, trend };
+  }
+
+  // ── Fallback: legacy heuristic from the completed flag ──
   const currentWeight = resolveExerciseWeight(exercise.name, exercise.weight);
   if (!Number.isFinite(currentWeight) || currentWeight <= 0) {
     return null;
@@ -1091,7 +1361,7 @@ function normalizeExerciseEntry(entry) {
     weight = Number.isNaN(parsedWeight) ? null : parsedWeight;
   }
 
-  return {
+  const result = {
     name,
     category: (isObj && entry.category) || inferred.category,
     trainingType: (isObj && entry.trainingType) || inferred.trainingType,
@@ -1101,6 +1371,80 @@ function normalizeExerciseEntry(entry) {
     sets: (isObj && typeof entry.sets === "number") ? entry.sets : 3,
     reps: (isObj && typeof entry.reps === "number") ? entry.reps : 10,
     warmup: Boolean(isObj && entry.warmup)
+  };
+
+  // Preserve the per-set log (reps/weight/done) when present. This is the
+  // historical record of what was actually performed during a session.
+  if (isObj && Array.isArray(entry.loggedSets)) {
+    result.loggedSets = entry.loggedSets.map((s) => {
+      const repsNum = Number(s && s.reps);
+      const weightRaw = s && s.weight;
+      const weightNum = Number(weightRaw);
+      return {
+        reps: Number.isFinite(repsNum) ? repsNum : null,
+        weight: (weightRaw === null || weightRaw === undefined || weightRaw === "" || Number.isNaN(weightNum)) ? null : weightNum,
+        done: Boolean(s && s.done)
+      };
+    });
+  }
+
+  return result;
+}
+
+// Lazily build/resize the per-set log for an exercise to match its target set count.
+// New sets are pre-filled with the planned reps and the exercise's reference weight.
+function ensureLoggedSets(exercise) {
+  const targetSets = Number.isFinite(exercise.sets) && exercise.sets > 0 ? exercise.sets : 3;
+  if (!Array.isArray(exercise.loggedSets)) {
+    exercise.loggedSets = [];
+  }
+  const defaultReps = Number.isFinite(exercise.reps) ? exercise.reps : 10;
+  const defaultWeight = exercise.supportsWeight && typeof exercise.weight === "number" ? exercise.weight : null;
+  while (exercise.loggedSets.length < targetSets) {
+    exercise.loggedSets.push({ reps: defaultReps, weight: defaultWeight, done: false });
+  }
+  if (exercise.loggedSets.length > targetSets) {
+    exercise.loggedSets = exercise.loggedSets.slice(0, targetSets);
+  }
+  return exercise.loggedSets;
+}
+
+// Estimated one-rep max via the Epley formula. Returns null when not computable.
+function estimateOneRepMax(weight, reps) {
+  const w = Number(weight);
+  const r = Number(reps);
+  if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(r) || r <= 0) return null;
+  if (r === 1) return w;
+  return w * (1 + r / 30);
+}
+
+// Aggregates a single completed exercise's set log into summary stats.
+function summarizeExerciseSets(exercise) {
+  const sets = Array.isArray(exercise.loggedSets) ? exercise.loggedSets : [];
+  let totalVolume = 0;
+  let topWeight = 0;
+  let bestOneRm = 0;
+  let loggedCount = 0;
+  sets.forEach((s) => {
+    const reps = Number(s.reps);
+    const weight = Number(s.weight);
+    if (!Number.isFinite(reps) || reps <= 0) return;
+    loggedCount += 1;
+    if (Number.isFinite(weight) && weight > 0) {
+      totalVolume += weight * reps;
+      if (weight > topWeight) topWeight = weight;
+      const orm = estimateOneRepMax(weight, reps);
+      if (orm && orm > bestOneRm) bestOneRm = orm;
+    } else {
+      totalVolume += reps; // bodyweight: count reps as volume
+    }
+  });
+  return {
+    totalVolume,
+    topWeight,
+    bestOneRm,
+    loggedCount,
+    hasWeight: topWeight > 0
   };
 }
 
@@ -1410,6 +1754,10 @@ function ensurePersonalDefaults() {
 
   if (!Array.isArray(state.personal.diary)) {
     state.personal.diary = [];
+  }
+
+  if (!Array.isArray(state.personal.photos)) {
+    state.personal.photos = [];
   }
 }
 
@@ -2339,6 +2687,139 @@ async function handleCancelWorkout(session) {
   renderPersonal();
 }
 
+// Builds the per-set logging block for one exercise. When readOnly is true it
+// renders a compact recap of what was logged plus summary stats (volume / top
+// set / estimated 1RM); otherwise it renders editable reps/weight inputs and a
+// per-set "done" toggle.
+function buildSetLogger(exercise, exerciseIndex, session, readOnly) {
+  const sets = ensureLoggedSets(exercise);
+  if (!sets.length) return null;
+
+  const wrap = document.createElement("div");
+  wrap.className = "set-logger";
+
+  sets.forEach((setData, setIndex) => {
+    const setRow = document.createElement("div");
+    setRow.className = `set-row${setData.done ? " set-row-done" : ""}`;
+
+    const numEl = document.createElement("span");
+    numEl.className = "set-num";
+    numEl.textContent = setIndex + 1;
+    setRow.appendChild(numEl);
+
+    const fields = document.createElement("div");
+    fields.className = "set-fields";
+
+    const repsField = document.createElement("label");
+    repsField.className = "set-field";
+    if (readOnly) {
+      repsField.innerHTML = `<span class="set-field-val">${setData.reps != null ? setData.reps : "—"}</span><span class="set-field-unit">rip</span>`;
+    } else {
+      const repsInput = document.createElement("input");
+      repsInput.type = "number";
+      repsInput.inputMode = "numeric";
+      repsInput.min = "0";
+      repsInput.className = "set-input set-input-reps";
+      repsInput.value = setData.reps != null ? String(setData.reps) : "";
+      repsInput.addEventListener("click", (e) => e.stopPropagation());
+      repsInput.addEventListener("change", async () => {
+        const v = Number(repsInput.value);
+        setData.reps = Number.isFinite(v) && v >= 0 ? v : null;
+        await saveWorkoutSessions();
+      });
+      repsField.appendChild(repsInput);
+      const unit = document.createElement("span");
+      unit.className = "set-field-unit";
+      unit.textContent = "rip";
+      repsField.appendChild(unit);
+    }
+    fields.appendChild(repsField);
+
+    if (exercise.supportsWeight) {
+      const weightField = document.createElement("label");
+      weightField.className = "set-field";
+      if (readOnly) {
+        weightField.innerHTML = `<span class="set-field-val">${setData.weight != null ? setData.weight : "—"}</span><span class="set-field-unit">kg</span>`;
+      } else {
+        const weightInput = document.createElement("input");
+        weightInput.type = "number";
+        weightInput.inputMode = "decimal";
+        weightInput.min = "0";
+        weightInput.step = "0.5";
+        weightInput.className = "set-input set-input-weight";
+        weightInput.value = setData.weight != null ? String(setData.weight) : "";
+        weightInput.addEventListener("click", (e) => e.stopPropagation());
+        weightInput.addEventListener("change", async () => {
+          const v = Number(weightInput.value);
+          setData.weight = weightInput.value === "" || Number.isNaN(v) ? null : v;
+          await saveWorkoutSessions();
+        });
+        weightField.appendChild(weightInput);
+        const unit = document.createElement("span");
+        unit.className = "set-field-unit";
+        unit.textContent = "kg";
+        weightField.appendChild(unit);
+      }
+      fields.appendChild(weightField);
+    }
+
+    setRow.appendChild(fields);
+
+    if (!readOnly) {
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "set-done-btn";
+      doneBtn.textContent = setData.done ? "✓" : "○";
+      doneBtn.disabled = session.status !== "in_progress";
+      doneBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        setData.done = !setData.done;
+        setRow.classList.toggle("set-row-done", setData.done);
+        doneBtn.textContent = setData.done ? "✓" : "○";
+
+        // Exercise is complete when every set is marked done.
+        const allDone = sets.every((s) => s.done);
+        session.exercises[exerciseIndex].completed = allDone;
+
+        await saveWorkoutSessions();
+        renderWeekCards();
+        renderCalendar();
+
+        if (setData.done) {
+          showRestTimer(exercise.restSeconds || 60);
+        }
+        // If the whole exercise just completed, refresh to update the top
+        // checkbox / done styling on the parent row.
+        if (allDone) renderWorkoutDetail();
+      });
+      setRow.appendChild(doneBtn);
+    }
+
+    wrap.appendChild(setRow);
+  });
+
+  // Summary line on completed sessions.
+  if (readOnly) {
+    const summary = summarizeExerciseSets(exercise);
+    if (summary.loggedCount) {
+      const sum = document.createElement("div");
+      sum.className = "set-summary";
+      const parts = [];
+      if (summary.hasWeight) {
+        parts.push(`Volume ${Math.round(summary.totalVolume)} kg`);
+        parts.push(`Top ${summary.topWeight} kg`);
+        if (summary.bestOneRm) parts.push(`1RM ~${Math.round(summary.bestOneRm)} kg`);
+      } else {
+        parts.push(`${Math.round(summary.totalVolume)} rip totali`);
+      }
+      sum.textContent = parts.join(" · ");
+      wrap.appendChild(sum);
+    }
+  }
+
+  return wrap;
+}
+
 function renderWorkoutDetail() {
   const session = workoutDetailDate ? state.workoutSessions[workoutDetailDate] : null;
   if (!session) {
@@ -2408,6 +2889,8 @@ function renderWorkoutDetail() {
   timeline.className = "exercise-timeline";
 
   const showCheckbox = session.status === "in_progress" || session.status === "paused";
+  // Show the read-only logged sets recap on finished sessions too.
+  const showSetRecap = session.status === "completed";
 
   session.exercises.forEach((exercise, index) => {
     const row = document.createElement("div");
@@ -2428,7 +2911,12 @@ function renderWorkoutDetail() {
       checkbox.disabled = session.status !== "in_progress";
 
       checkbox.addEventListener("change", async () => {
-        session.exercises[index].completed = checkbox.checked;
+        const ex = session.exercises[index];
+        ex.completed = checkbox.checked;
+        // Keep the per-set log in sync when toggling the whole exercise.
+        if (!exercise.warmup) {
+          ensureLoggedSets(ex).forEach((s) => { s.done = checkbox.checked; });
+        }
         await saveWorkoutSessions();
         renderWeekCards();
         renderCalendar();
@@ -2454,7 +2942,7 @@ function renderWorkoutDetail() {
     const weightStr = exercise.supportsWeight && typeof exercise.weight === "number" ? ` · ${exercise.weight} kg` : "";
     const setsStr = (exercise.sets || 3) + "×" + (exercise.reps || 10);
     const warmupStr = exercise.warmup ? " · Riscaldamento" : "";
-    meta.textContent = `${setsStr} · ${exercise.trainingType}${weightStr}${warmupStr}`;
+    meta.textContent = `${setsStr} · ${exercise.trainingType}${warmupStr}${weightStr}`;
 
     content.appendChild(title);
     content.appendChild(meta);
@@ -2463,6 +2951,13 @@ function renderWorkoutDetail() {
     row.appendChild(checkbox);
     row.appendChild(content);
     timeline.appendChild(row);
+
+    // Per-set logger (active workouts) or read-only recap (completed). Warmup
+    // exercises stay simple — they keep just the single checkbox above.
+    if (!exercise.warmup && (showCheckbox || showSetRecap)) {
+      const logger = buildSetLogger(exercise, index, session, showSetRecap);
+      if (logger) timeline.appendChild(logger);
+    }
 
     // Click on content area opens exercise detail panel
     content.addEventListener("click", (e) => {
@@ -2700,7 +3195,46 @@ function renderPersonal() {
     profileStreakValueEl.textContent = String(getPersonalWorkoutStreak());
   }
   renderMetricsChart();
+  renderMeasurementsSummary();
+  renderPhotos();
   renderDiary();
+}
+
+// Shows the latest body measurement for each tracked circumference along with
+// the delta versus the previous reading that included it.
+function renderMeasurementsSummary() {
+  if (!measurementsSummaryEl) return;
+
+  const fields = [
+    ["waist", "Vita"],
+    ["chest", "Petto"],
+    ["arm", "Braccio"],
+    ["thigh", "Coscia"]
+  ];
+  const metrics = [...state.personal.metrics].sort((a, b) => a.date.localeCompare(b.date));
+
+  const cards = fields.map(([key, label]) => {
+    const withValue = metrics.filter((m) => Number.isFinite(Number(m[key])));
+    if (!withValue.length) return "";
+    const latest = withValue[withValue.length - 1];
+    const prev = withValue.length > 1 ? withValue[withValue.length - 2] : null;
+    let deltaStr = "";
+    if (prev) {
+      const d = Number(latest[key]) - Number(prev[key]);
+      const sign = d > 0 ? "+" : "";
+      const cls = d > 0 ? "measure-up" : (d < 0 ? "measure-down" : "");
+      deltaStr = `<span class="measure-delta ${cls}">${sign}${d.toFixed(1)}</span>`;
+    }
+    return `<div class="measure-card">
+      <span class="measure-label">${label}</span>
+      <span class="measure-val">${Number(latest[key])}<small>cm</small></span>
+      ${deltaStr}
+    </div>`;
+  }).filter(Boolean).join("");
+
+  measurementsSummaryEl.innerHTML = cards
+    ? `<p class="measurements-title">Ultime misure</p><div class="measure-grid">${cards}</div>`
+    : "";
 }
 
 function renderMetricsChart() {
@@ -2989,10 +3523,295 @@ function setActiveTab(tabId) {
   }
 }
 
+// ── Progress photos ──────────────────────────────────────────
+let photoViewerCurrentId = null;
+
+// Reads a File and returns a compressed JPEG data URL (max side ~900px) so the
+// stored state stays small enough for the JSON document.
+function compressImageFile(file, maxSide = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read error"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode error"));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxSide) {
+          height = Math.round((height * maxSide) / width);
+          width = maxSide;
+        } else if (height >= width && height > maxSide) {
+          width = Math.round((width * maxSide) / height);
+          height = maxSide;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleAddPhoto(file) {
+  if (!file) return;
+  try {
+    showToast("Elaborazione foto...");
+    const dataUrl = await compressImageFile(file);
+    if (!Array.isArray(state.personal.photos)) state.personal.photos = [];
+    state.personal.photos.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      date: getTodayKey(),
+      dataUrl
+    });
+    state.personal.photos.sort((a, b) => a.date.localeCompare(b.date));
+    const ok = await savePersonalState();
+    if (ok) {
+      renderPhotos();
+      showToast("Foto salvata");
+    }
+  } catch (e) {
+    showToast("Impossibile elaborare l'immagine");
+  }
+}
+
+function renderPhotos() {
+  if (!photoGridEl) return;
+  const photos = Array.isArray(state.personal.photos) ? state.personal.photos : [];
+  if (!photos.length) {
+    photoGridEl.innerHTML = `<p class="photo-empty">Nessuna foto. Aggiungine una per confrontare i progressi nel tempo.</p>`;
+    return;
+  }
+  photoGridEl.innerHTML = "";
+  photos.forEach((photo) => {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "photo-cell";
+    cell.style.backgroundImage = `url("${photo.dataUrl}")`;
+    const label = document.createElement("span");
+    label.className = "photo-cell-date";
+    label.textContent = formatPhotoDate(photo.date);
+    cell.appendChild(label);
+    cell.addEventListener("click", () => openPhotoViewer(photo.id));
+    photoGridEl.appendChild(cell);
+  });
+}
+
+function formatPhotoDate(dateKey) {
+  try {
+    return dateFromIso(dateKey).toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "2-digit" });
+  } catch (e) {
+    return dateKey;
+  }
+}
+
+function openPhotoViewer(id) {
+  const photo = (state.personal.photos || []).find((p) => p.id === id);
+  if (!photo || !photoViewerEl) return;
+  photoViewerCurrentId = id;
+  photoViewerImgEl.src = photo.dataUrl;
+  photoViewerDateEl.textContent = formatPhotoDate(photo.date);
+  photoViewerEl.classList.remove("hidden");
+}
+
+function closePhotoViewer() {
+  if (photoViewerEl) photoViewerEl.classList.add("hidden");
+  if (photoViewerImgEl) photoViewerImgEl.src = "";
+  photoViewerCurrentId = null;
+}
+
+async function deleteCurrentPhoto() {
+  if (!photoViewerCurrentId) return;
+  if (!confirm("Eliminare questa foto?")) return;
+  state.personal.photos = (state.personal.photos || []).filter((p) => p.id !== photoViewerCurrentId);
+  const ok = await savePersonalState();
+  if (ok) {
+    closePhotoViewer();
+    renderPhotos();
+    showToast("Foto eliminata");
+  }
+}
+
+// ── Data export / import ─────────────────────────────────────
+async function exportData() {
+  try {
+    const res = await fetch("/api/state");
+    if (!res.ok) throw new Error("fetch failed");
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gymplanner-backup-${getTodayKey()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("Backup esportato");
+  } catch (e) {
+    showToast("Errore durante l'esportazione");
+  }
+}
+
+async function importData(file) {
+  if (!file) return;
+  if (!confirm("Importare questo backup? I dati attuali verranno sovrascritti.")) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const res = await fetch("/api/import", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state: parsed })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || "Import non riuscito");
+      return;
+    }
+    // Reload everything from the freshly imported state.
+    await loadState();
+    syncWorkoutSessionsRange();
+    updateStats();
+    renderLibrarySection();
+    renderEditorDaySelect();
+    renderEditor();
+    renderWeekCards();
+    renderCalendar();
+    renderPersonal();
+    showToast("Backup importato");
+  } catch (e) {
+    showToast("File non valido");
+  }
+}
+
+// ── Plate calculator ─────────────────────────────────────────
+const PLATE_SIZES = [25, 20, 15, 10, 5, 2.5, 1.25];
+
+// Greedy breakdown of the per-side load into available plates.
+function computePlates(totalWeight, barWeight) {
+  const perSide = (totalWeight - barWeight) / 2;
+  if (!Number.isFinite(perSide) || perSide < 0) return null;
+  const plates = [];
+  let remaining = perSide;
+  PLATE_SIZES.forEach((size) => {
+    let count = 0;
+    while (remaining >= size - 1e-9) {
+      remaining -= size;
+      count += 1;
+    }
+    if (count) plates.push({ size, count });
+  });
+  return { perSide, plates, leftover: remaining };
+}
+
+function renderPlateCalc() {
+  if (!plateResultEl) return;
+  const total = Number(plateTargetWeightEl.value);
+  const bar = Number(plateBarWeightEl.value);
+  if (!Number.isFinite(total) || total <= 0) {
+    plateResultEl.innerHTML = `<p class="plate-empty">Inserisci un peso totale.</p>`;
+    return;
+  }
+  const result = computePlates(total, bar);
+  if (!result) {
+    plateResultEl.innerHTML = `<p class="plate-empty">Peso inferiore al bilanciere.</p>`;
+    return;
+  }
+  if (!result.plates.length) {
+    plateResultEl.innerHTML = `<p class="plate-empty">Solo bilanciere (${bar} kg), nessun disco.</p>`;
+    return;
+  }
+  const chips = result.plates
+    .map((p) => `<span class="plate-chip">${p.count}× ${p.size}</span>`)
+    .join("");
+  const leftoverNote = result.leftover > 0.01
+    ? `<p class="plate-note">Non ottenibile esattamente: ${(result.leftover).toFixed(2)} kg per lato mancanti.</p>`
+    : "";
+  plateResultEl.innerHTML = `
+    <p class="plate-perside">${result.perSide.toFixed(2)} kg per lato</p>
+    <div class="plate-chips">${chips}</div>
+    ${leftoverNote}
+  `;
+}
+
+function openPlateCalc() {
+  if (!plateCalcModalEl) return;
+  plateCalcModalEl.classList.remove("hidden");
+  renderPlateCalc();
+}
+
+function closePlateCalc() {
+  if (plateCalcModalEl) plateCalcModalEl.classList.add("hidden");
+}
+
+// ── Theme (dark / light) ─────────────────────────────────────
+const THEME_KEY = "gymplanner_theme";
+
+function applyTheme(theme) {
+  const isLight = theme === "light";
+  document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
+  if (themeToggleBtn) themeToggleBtn.textContent = isLight ? "☀️ Chiaro" : "🌙 Scuro";
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", isLight ? "#f4f4f5" : "#0d0d0d");
+}
+
+function initTheme() {
+  let theme = "dark";
+  try {
+    theme = localStorage.getItem(THEME_KEY) || "dark";
+  } catch (e) { /* ignore */ }
+  applyTheme(theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  const next = current === "light" ? "dark" : "light";
+  applyTheme(next);
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch (e) { /* ignore */ }
+  // Repaint canvases that bake colours in.
+  renderMetricsChart();
+}
+
 function bindEvents() {
   navButtons.forEach((btn) => {
     btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
   });
+
+  if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
+  if (openPlateCalcBtn) openPlateCalcBtn.addEventListener("click", openPlateCalc);
+  if (closePlateCalcBtn) closePlateCalcBtn.addEventListener("click", closePlateCalc);
+  if (plateCalcModalEl) {
+    plateCalcModalEl.querySelector(".plate-modal-backdrop").addEventListener("click", closePlateCalc);
+  }
+  if (plateTargetWeightEl) plateTargetWeightEl.addEventListener("input", renderPlateCalc);
+  if (plateBarWeightEl) plateBarWeightEl.addEventListener("change", renderPlateCalc);
+
+  if (addPhotoBtn && photoInputEl) {
+    addPhotoBtn.addEventListener("click", () => photoInputEl.click());
+    photoInputEl.addEventListener("change", () => {
+      const file = photoInputEl.files && photoInputEl.files[0];
+      handleAddPhoto(file);
+      photoInputEl.value = "";
+    });
+  }
+  if (photoViewerCloseEl) photoViewerCloseEl.addEventListener("click", closePhotoViewer);
+  if (photoViewerDeleteEl) photoViewerDeleteEl.addEventListener("click", deleteCurrentPhoto);
+
+  if (exportDataBtn) exportDataBtn.addEventListener("click", exportData);
+  if (importDataBtn && importDataInputEl) {
+    importDataBtn.addEventListener("click", () => importDataInputEl.click());
+    importDataInputEl.addEventListener("change", () => {
+      const file = importDataInputEl.files && importDataInputEl.files[0];
+      importData(file);
+      importDataInputEl.value = "";
+    });
+  }
 
   backToWeekBtn.addEventListener("click", closeWorkoutDetail);
   openCalendarBtn.addEventListener("click", openCalendar);
@@ -3112,6 +3931,20 @@ function bindEvents() {
       return;
     }
 
+    // Optional body measurements (cm) — only stored when filled in.
+    const measureFields = [
+      ["waist", metricWaistEl],
+      ["chest", metricChestEl],
+      ["arm", metricArmEl],
+      ["thigh", metricThighEl]
+    ];
+    measureFields.forEach(([key, el]) => {
+      if (el && el.value !== "") {
+        const v = Number(el.value);
+        if (Number.isFinite(v)) metric[key] = v;
+      }
+    });
+
     state.personal.metrics.push(metric);
     state.personal.metrics.sort((a, b) => a.date.localeCompare(b.date));
 
@@ -3119,6 +3952,7 @@ function bindEvents() {
     metricForm.reset();
     metricForm.classList.add("hidden");
     renderMetricsChart();
+    renderMeasurementsSummary();
   });
 
   diaryForm.addEventListener("submit", async (event) => {
@@ -3235,7 +4069,57 @@ function restoreRestTimerIfNeeded() {
   _startRestTimerLoop();
 }
 
+// Blocks app start until authenticated, but only when the backend requires it.
+async function ensureAuthenticated() {
+  let status;
+  try {
+    const res = await fetch("/api/auth/status");
+    status = await res.json();
+  } catch (e) {
+    return; // server unreachable — let normal flow surface the error
+  }
+  if (!status || !status.authRequired) return;
+
+  const tokenValid = async () => {
+    try {
+      const r = await fetch("/api/state");
+      return r.ok;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  if (await tokenValid()) return;
+
+  const overlay = document.getElementById("authOverlay");
+  const form = document.getElementById("authForm");
+  const pwd = document.getElementById("authPassword");
+  const err = document.getElementById("authError");
+  if (!overlay || !form || !pwd) return;
+
+  overlay.classList.remove("hidden");
+  pwd.focus();
+
+  await new Promise((resolve) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try { localStorage.setItem(APP_TOKEN_KEY, pwd.value); } catch (er) { /* ignore */ }
+      if (await tokenValid()) {
+        if (err) err.classList.add("hidden");
+        overlay.classList.add("hidden");
+        resolve();
+      } else {
+        if (err) err.classList.remove("hidden");
+        pwd.value = "";
+        try { localStorage.removeItem(APP_TOKEN_KEY); } catch (er) { /* ignore */ }
+      }
+    });
+  });
+}
+
 async function init() {
+  initTheme();
+  await ensureAuthenticated();
   await loadState();
 
   const didSyncSessions = syncWorkoutSessionsRange();

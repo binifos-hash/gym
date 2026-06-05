@@ -6,6 +6,10 @@
   <title>GymPlanner</title>
   <meta name="apple-mobile-web-app-title" content="GymPlanner">
   <meta name="theme-color" content="#0d0d0d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="shortcut icon" href="/favicon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
@@ -13,6 +17,16 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="authOverlay" class="auth-overlay hidden">
+    <form id="authForm" class="auth-card">
+      <h1 class="auth-title">GymPlanner</h1>
+      <p class="auth-sub">Inserisci la password per accedere.</p>
+      <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password">
+      <p id="authError" class="auth-error hidden">Password errata.</p>
+      <button type="submit" class="btn-save btn-save-full">Accedi</button>
+    </form>
+  </div>
+
   <header class="main-header">
     <h1>GymPlanner</h1>
   </header>
@@ -130,8 +144,17 @@
           <input id="metricDate" type="date" required>
           <input id="metricWeight" type="number" step="0.1" min="0" placeholder="Peso (kg)" required>
           <input id="metricMuscle" type="number" step="0.1" min="0" placeholder="Massa muscolare (kg)" required>
+          <p class="metric-form-section">Misure opzionali (cm)</p>
+          <div class="metric-measure-grid">
+            <input id="metricWaist" type="number" step="0.1" min="0" placeholder="Vita">
+            <input id="metricChest" type="number" step="0.1" min="0" placeholder="Petto">
+            <input id="metricArm" type="number" step="0.1" min="0" placeholder="Braccio">
+            <input id="metricThigh" type="number" step="0.1" min="0" placeholder="Coscia">
+          </div>
           <button class="btn-save" type="submit">Aggiungi dato</button>
         </form>
+
+        <div id="measurementsSummary" class="measurements-summary"></div>
 
         <div class="metrics-chart-shell">
           <canvas id="metricsYAxis" width="56" height="300"></canvas>
@@ -148,6 +171,35 @@
           <button type="submit" class="btn-save">Salva nota</button>
         </form>
         <div id="diaryList" class="diary-list"></div>
+      </div>
+
+      <div class="panel-card">
+        <div class="chart-head">
+          <h2>Foto Progressi</h2>
+          <button id="addPhotoBtn" class="round-add" type="button">+</button>
+          <input id="photoInput" type="file" accept="image/*" hidden>
+        </div>
+        <div id="photoGrid" class="photo-grid"></div>
+      </div>
+
+      <div class="panel-card">
+        <h2>Dati e strumenti</h2>
+        <div class="tools-row">
+          <span class="tools-label">Tema</span>
+          <button id="themeToggleBtn" class="tool-btn" type="button">🌙 Scuro</button>
+        </div>
+        <div class="tools-row">
+          <span class="tools-label">Calcolo dischi bilanciere</span>
+          <button id="openPlateCalcBtn" class="tool-btn" type="button">Apri</button>
+        </div>
+        <div class="tools-row">
+          <span class="tools-label">Backup dati</span>
+          <div class="tools-actions">
+            <button id="exportDataBtn" class="tool-btn" type="button">Esporta</button>
+            <button id="importDataBtn" class="tool-btn" type="button">Importa</button>
+            <input id="importDataInput" type="file" accept="application/json,.json" hidden>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -210,6 +262,46 @@
     </div>
   </div>
 
+  <!-- Photo viewer overlay -->
+  <div id="photoViewer" class="photo-viewer hidden">
+    <button id="photoViewerClose" class="photo-viewer-close" type="button">✕</button>
+    <img id="photoViewerImg" alt="Foto progresso">
+    <div class="photo-viewer-bar">
+      <span id="photoViewerDate"></span>
+      <button id="photoViewerDelete" class="photo-viewer-delete" type="button">Elimina</button>
+    </div>
+  </div>
+
+  <!-- Plate calculator modal -->
+  <div id="plateCalcModal" class="plate-modal hidden">
+    <div class="plate-modal-backdrop"></div>
+    <div class="plate-modal-content">
+      <div class="plate-modal-head">
+        <h3>Calcolo dischi</h3>
+        <button id="closePlateCalcBtn" class="drawer-close" type="button">✕</button>
+      </div>
+      <div class="plate-input-row">
+        <label class="plate-field">
+          <span>Peso totale</span>
+          <input id="plateTargetWeight" type="number" min="0" step="0.5" inputmode="decimal" placeholder="60">
+          <span class="plate-unit">kg</span>
+        </label>
+        <label class="plate-field">
+          <span>Bilanciere</span>
+          <select id="plateBarWeight">
+            <option value="20">20 kg</option>
+            <option value="15">15 kg</option>
+            <option value="10">10 kg</option>
+            <option value="7">7 kg (manubrio)</option>
+            <option value="0">0 (solo dischi)</option>
+          </select>
+        </label>
+      </div>
+      <div id="plateResult" class="plate-result"></div>
+      <p class="plate-hint">Dischi disponibili per lato: 25 · 20 · 15 · 10 · 5 · 2.5 · 1.25 kg</p>
+    </div>
+  </div>
+
   <!-- Exercise info panel -->
   <div id="exerciseInfoPanel" class="exercise-info-panel hidden">
     <div class="exercise-info-backdrop"></div>
@@ -234,6 +326,13 @@
           <span class="exercise-info-sets-hint">Modifica nella sezione Scheda</span>
         </div>
       </div>
+      <div class="exercise-info-section" id="exerciseInfoProgressionWrap">
+        <label class="exercise-info-label">Progressione</label>
+        <div id="exerciseInfoPr" class="exercise-info-pr"></div>
+        <div class="exercise-info-chart-shell">
+          <canvas id="exerciseInfoChart" width="320" height="150"></canvas>
+        </div>
+      </div>
       <div class="exercise-info-section">
         <label class="exercise-info-label">Note / Descrizione</label>
         <textarea id="exerciseInfoDesc" rows="3" placeholder="Indicazioni tecniche, note personali..."></textarea>
@@ -251,5 +350,13 @@
   </div>
 
   <script src="app.js"></script>
+  <script>
+    // Register the service worker for installability + offline support.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => { /* offline support optional */ });
+      });
+    }
+  </script>
 </body>
 </html>

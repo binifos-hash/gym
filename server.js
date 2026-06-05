@@ -35,7 +35,28 @@ async function initDb() {
 }
 // ──────────────────────────────────────────────────────────────
 
-app.use(express.json({ limit: "1mb" }));
+// Larger limit to accommodate client-compressed progress photos (base64) that
+// are stored inside the personal section of the state document.
+app.use(express.json({ limit: "12mb" }));
+
+// ── Optional authentication ────────────────────────────────────
+// When APP_PASSWORD is set, every /api/* call must carry a matching token in
+// the `x-app-token` header. When it's unset (e.g. local dev) the API is open.
+// Static assets (index.html/app.js/css) stay public — they hold no secrets.
+const APP_PASSWORD = process.env.APP_PASSWORD || "";
+
+// Lets the client discover whether a login is required (mounted before the guard).
+app.get("/api/auth/status", (req, res) => {
+  res.json({ authRequired: Boolean(APP_PASSWORD) });
+});
+
+app.use("/api", (req, res, next) => {
+  if (!APP_PASSWORD) return next();
+  const token = req.headers["x-app-token"];
+  if (typeof token === "string" && token === APP_PASSWORD) return next();
+  return res.status(401).json({ error: "Non autorizzato" });
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 function getTodayKey() {
@@ -370,6 +391,39 @@ app.put("/api/move-exercise", async (req, res) => {
   }
 });
 
+app.put("/api/import", async (req, res) => {
+  try {
+    const incoming = req.body && (req.body.state || req.body);
+    if (!incoming || typeof incoming !== "object") {
+      return res.status(400).json({ error: "Payload import non valido" });
+    }
+
+    // Reshape to guarantee the expected top-level structure, then persist
+    // the whole state in one shot (full restore from a backup export).
+    const shaped = ensureStateShape(incoming);
+
+    // Fill any missing weekday so a partial template still validates.
+    ["lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato", "domenica"].forEach((day) => {
+      if (!Array.isArray(shaped.weekTemplate[day])) shaped.weekTemplate[day] = [];
+    });
+
+    if (!isValidWeekTemplate(shaped.weekTemplate)) {
+      return res.status(400).json({ error: "weekTemplate non valido nel file importato" });
+    }
+    if (!isValidPersonal(shaped.personal)) {
+      return res.status(400).json({ error: "Sezione personale non valida nel file importato" });
+    }
+    if (!isValidWorkoutSessions(shaped.workoutSessions)) {
+      return res.status(400).json({ error: "workoutSessions non valido nel file importato" });
+    }
+
+    await writeState(shaped);
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ error: "Errore durante l'import" });
+  }
+});
+
 app.get("/api/cleanup", async (req, res) => {
   try {
     const state = await readState();
@@ -384,18 +438,30 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-initDb().then(() => {
-  app.listen(PORT, async () => {
-    console.log(`Gym app in ascolto su http://localhost:${PORT}`);
-    console.log(pgPool ? "Storage: PostgreSQL" : "Storage: file JSON locale");
-    try {
-      await readState();
-      console.log("Cleanup sessioni completato all'avvio.");
-    } catch (e) {
-      console.error("Errore cleanup avvio:", e);
-    }
+// Only boot the HTTP server when run directly (`node server.js`). When the file
+// is required from a test, we just expose the pure helpers below.
+if (require.main === module) {
+  initDb().then(() => {
+    app.listen(PORT, async () => {
+      console.log(`Gym app in ascolto su http://localhost:${PORT}`);
+      console.log(pgPool ? "Storage: PostgreSQL" : "Storage: file JSON locale");
+      try {
+        await readState();
+        console.log("Cleanup sessioni completato all'avvio.");
+      } catch (e) {
+        console.error("Errore cleanup avvio:", e);
+      }
+    });
+  }).catch((e) => {
+    console.error("Errore inizializzazione DB:", e);
+    process.exit(1);
   });
-}).catch((e) => {
-  console.error("Errore inizializzazione DB:", e);
-  process.exit(1);
-});
+}
+
+module.exports = {
+  app,
+  ensureStateShape,
+  isValidWeekTemplate,
+  isValidPersonal,
+  isValidWorkoutSessions
+};
