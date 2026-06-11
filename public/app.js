@@ -461,7 +461,10 @@ const EXERCISE_DEFAULTS = {
 
 let state = null;
 let exerciseInfoPanelCurrentName = null;
+// Chiave della sessione aperta nel dettaglio: "YYYY-MM-DD" o "YYYY-MM-DD#2".
 let workoutDetailDate = null;
+// Slot della scheda in modifica nell'editor: 1 = allenamento principale, 2 = secondo.
+let editorSlot = 1;
 let calendarMonthCursor = startOfMonth(new Date());
 let timerIntervalId = null;
 let restTimerIntervalId = null;
@@ -472,6 +475,7 @@ const weekContainerEl = document.getElementById("weekContainer");
 const weekOverviewEl = document.getElementById("weekOverview");
 const editorDaySelectEl = document.getElementById("editorDaySelect");
 const editorDayTypeSelectEl = document.getElementById("editorDayTypeSelect");
+const editorSlotBtns = [...document.querySelectorAll(".editor-slot-btn")];
 const editorSearchEl = document.getElementById("editorSearch");
 const libraryPickerEl = document.getElementById("libraryPicker");
 const dayExerciseListEl = document.getElementById("dayExerciseList");
@@ -816,9 +820,13 @@ function openExerciseInfoPanel(name, sets, reps) {
       const ex = state.workoutSessions[workoutDetailDate].exercises.find((e) => e.name === name);
       if (ex) { resolvedSets = ex.sets; resolvedReps = ex.reps; }
     }
-    // Fallback: check weekTemplate for any day that has this exercise
+    // Fallback: check both week templates for any day that has this exercise
     if (resolvedSets == null) {
-      for (const day of Object.values(state.weekTemplate || {})) {
+      const templateDays = [
+        ...Object.values(state.weekTemplate || {}),
+        ...Object.values(state.weekTemplate2 || {})
+      ];
+      for (const day of templateDays) {
         const ex = (Array.isArray(day) ? day : []).find((e) => (typeof e === "string" ? e : e.name) === name);
         if (ex && typeof ex === "object") { resolvedSets = ex.sets; resolvedReps = ex.reps; break; }
       }
@@ -871,15 +879,18 @@ async function saveExerciseInfoEntry() {
     videoUrl: exerciseInfoVideoUrlEl.value.trim()
   };
 
-  // 2. Propagate weight back to the week template so the editor reflects it.
-  //    Only update entries that currently have no weight override.
-  if (weightSave !== null && state.weekTemplate) {
-    Object.values(state.weekTemplate).forEach((entries) => {
-      if (!Array.isArray(entries)) return;
-      entries.forEach((entry) => {
-        if (entry && entry.name === name && entry.weight == null) {
-          entry.weight = weightSave;
-        }
+  // 2. Propagate weight back to the week templates (both slots) so the editor
+  //    reflects it. Only update entries that currently have no weight override.
+  if (weightSave !== null) {
+    [state.weekTemplate, state.weekTemplate2].forEach((templateMap) => {
+      if (!templateMap) return;
+      Object.values(templateMap).forEach((entries) => {
+        if (!Array.isArray(entries)) return;
+        entries.forEach((entry) => {
+          if (entry && entry.name === name && entry.weight == null) {
+            entry.weight = weightSave;
+          }
+        });
       });
     });
   }
@@ -920,6 +931,31 @@ function getTodayKey() {
 
 function getDayFromDate(date) {
   return days[(date.getDay() + 6) % 7];
+}
+
+// Le sessioni del 2º allenamento della giornata usano la chiave "YYYY-MM-DD#2";
+// quelle del 1º restano keyate per sola data (retrocompatibili).
+function sessionKeyFor(dateKey, slot) {
+  return slot === 2 ? `${dateKey}#2` : dateKey;
+}
+
+function parseSessionKey(sessionKey) {
+  const [dateKey, slotStr] = String(sessionKey).split("#");
+  return { dateKey, slot: slotStr === "2" ? 2 : 1 };
+}
+
+function getTemplateMapForSlot(slot) {
+  return slot === 2 ? state.weekTemplate2 : state.weekTemplate;
+}
+
+function getTemplateTypesForSlot(slot) {
+  return slot === 2 ? state.weekTemplateTypes2 : state.weekTemplateTypes;
+}
+
+// Tutte le sessioni registrate per una data (1º e 2º allenamento).
+function getSessionsForDate(dateKey) {
+  return [state.workoutSessions[dateKey], state.workoutSessions[sessionKeyFor(dateKey, 2)]]
+    .filter((s) => s && Array.isArray(s.exercises) && s.exercises.length);
 }
 
 function getWeekContext() {
@@ -1510,10 +1546,18 @@ function normalizeWeekTemplate() {
   if (!state.weekTemplate || typeof state.weekTemplate !== "object") {
     state.weekTemplate = {};
   }
+  if (!state.weekTemplate2 || typeof state.weekTemplate2 !== "object") {
+    state.weekTemplate2 = {};
+  }
 
   days.forEach((day) => {
     const entries = Array.isArray(state.weekTemplate[day]) ? state.weekTemplate[day] : [];
     state.weekTemplate[day] = entries
+      .map(normalizeExerciseEntry)
+      .filter(Boolean);
+
+    const entries2 = Array.isArray(state.weekTemplate2[day]) ? state.weekTemplate2[day] : [];
+    state.weekTemplate2[day] = entries2
       .map(normalizeExerciseEntry)
       .filter(Boolean);
   });
@@ -1532,12 +1576,14 @@ function cloneExercisesForSession(exercises) {
   return prependWarmupExercises(baseExercises);
 }
 
-function normalizeWorkoutSession(session, dateKey) {
+function normalizeWorkoutSession(session, sessionKey) {
   if (!session || typeof session !== "object") {
     return null;
   }
 
-  const resolvedDate = session.date || dateKey;
+  const keyInfo = sessionKey ? parseSessionKey(sessionKey) : { dateKey: null, slot: 1 };
+  const slot = session.slot === 2 || keyInfo.slot === 2 ? 2 : 1;
+  const resolvedDate = session.date || keyInfo.dateKey;
   if (!resolvedDate) {
     return null;
   }
@@ -1571,6 +1617,7 @@ function normalizeWorkoutSession(session, dateKey) {
   return {
     date: resolvedDate,
     day,
+    slot,
     trainingType: session.trainingType || null,
     status,
     exercises: normalizedExercises,
@@ -1586,27 +1633,30 @@ function normalizeWorkoutSessions() {
   }
 
   const nextSessions = {};
-  Object.entries(state.workoutSessions).forEach(([dateKey, session]) => {
-    const normalized = normalizeWorkoutSession(session, dateKey);
+  Object.entries(state.workoutSessions).forEach(([sessionKey, session]) => {
+    const normalized = normalizeWorkoutSession(session, sessionKey);
     if (normalized) {
-      nextSessions[normalized.date] = normalized;
+      nextSessions[sessionKeyFor(normalized.date, normalized.slot)] = normalized;
     }
   });
 
   state.workoutSessions = nextSessions;
 }
 
-function getTemplateExercisesForDate(dateKey) {
+function getTemplateExercisesForDate(dateKey, slot = 1) {
   const day = getDayFromDate(dateFromIso(dateKey));
-  return cloneExercisesForSession(state.weekTemplate[day] || []);
+  const templateMap = getTemplateMapForSlot(slot) || {};
+  return cloneExercisesForSession(templateMap[day] || []);
 }
 
-function createWorkoutSession(dateKey, exercises) {
+function createWorkoutSession(dateKey, exercises, slot = 1) {
   const day = getDayFromDate(dateFromIso(dateKey));
+  const typesMap = getTemplateTypesForSlot(slot) || {};
   return {
     date: dateKey,
     day,
-    trainingType: (state.weekTemplateTypes && state.weekTemplateTypes[day]) || null,
+    slot,
+    trainingType: typesMap[day] || null,
     status: dateKey < getTodayKey() ? "missed" : "planned",
     exercises: cloneExercisesForSession(exercises),
     durationSeconds: 0,
@@ -1617,39 +1667,32 @@ function createWorkoutSession(dateKey, exercises) {
 
 // Returns a session from state if it exists, otherwise builds a virtual planned one from template.
 // Virtual sessions are NOT stored in state — they are computed on the fly.
-function getOrBuildSession(dateKey) {
-  const existing = state.workoutSessions[dateKey];
+function getOrBuildSession(dateKey, slot = 1) {
+  const existing = state.workoutSessions[sessionKeyFor(dateKey, slot)];
   if (existing) return existing;
   // Never build virtual sessions for past dates — only real saved data counts
   if (dateKey < getTodayKey()) return null;
-  const templateExercises = getTemplateExercisesForDate(dateKey);
+  const templateExercises = getTemplateExercisesForDate(dateKey, slot);
   if (!templateExercises.length) return null;
-  return createWorkoutSession(dateKey, templateExercises);
+  return createWorkoutSession(dateKey, templateExercises, slot);
 }
 
 function syncWorkoutSessionsRange() {
   normalizeWorkoutSessions();
 
   let changed = false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = formatIsoDate(today);
+  const todayKey = getTodayKey();
 
-  // Only iterate past days: mark missed, handle in_progress/paused left over
-  for (let offset = -WORKOUT_SYNC_PAST_DAYS; offset < 0; offset += 1) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + offset);
-    const dateKey = formatIsoDate(date);
-    const existing = state.workoutSessions[dateKey];
+  // Past sessions (both slots) left in_progress/paused/planned become missed.
+  Object.values(state.workoutSessions).forEach((session) => {
+    if (!session || session.status === "completed" || session.status === "missed") return;
+    if (!session.date || session.date >= todayKey) return;
 
-    if (!existing) continue;
-    if (existing.status === "completed" || existing.status === "missed") continue;
-
-    existing.durationSeconds = getSessionElapsedSeconds(existing);
-    existing.activeStartedAt = null;
-    existing.status = "missed";
+    session.durationSeconds = getSessionElapsedSeconds(session);
+    session.activeStartedAt = null;
+    session.status = "missed";
     changed = true;
-  }
+  });
 
   return changed;
 }
@@ -1737,6 +1780,12 @@ function ensureWeekTemplateTypes() {
   if (!state.weekTemplateTypes || typeof state.weekTemplateTypes !== "object") {
     state.weekTemplateTypes = {};
   }
+  if (!state.weekTemplate2 || typeof state.weekTemplate2 !== "object") {
+    state.weekTemplate2 = {};
+  }
+  if (!state.weekTemplateTypes2 || typeof state.weekTemplateTypes2 !== "object") {
+    state.weekTemplateTypes2 = {};
+  }
 }
 
 function ensurePersonalDefaults() {
@@ -1782,7 +1831,12 @@ async function saveWeekTemplate() {
   const res = await fetch("/api/week-template", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes })
+    body: JSON.stringify({
+      weekTemplate: state.weekTemplate,
+      weekTemplateTypes: state.weekTemplateTypes,
+      weekTemplate2: state.weekTemplate2,
+      weekTemplateTypes2: state.weekTemplateTypes2
+    })
   });
 
   if (!res.ok) {
@@ -1835,11 +1889,16 @@ function updateStats() {
     return;
   }
 
-  const totalExercises = days.reduce((sum, day) => sum + (state.weekTemplate[day] || []).length, 0);
+  const totalExercises = days.reduce(
+    (sum, day) => sum + (state.weekTemplate[day] || []).length + (state.weekTemplate2[day] || []).length,
+    0
+  );
   const { monday, sunday } = getWeekContext();
 
   weekNumEl.textContent = getWeekNum();
-  dayCountEl.textContent = days.filter((day) => (state.weekTemplate[day] || []).length > 0).length;
+  dayCountEl.textContent = days.filter(
+    (day) => (state.weekTemplate[day] || []).length > 0 || (state.weekTemplate2[day] || []).length > 0
+  ).length;
   exerciseCountEl.textContent = totalExercises;
   weekRangeEl.textContent = `${formatDate(monday)} - ${formatDate(sunday)}`;
 }
@@ -1962,6 +2021,14 @@ function renderWeekCards() {
     const hasTemplate = templateExercises.length > 0;
     const isPast = dateKey < getTodayKey();
 
+    // 2º allenamento della giornata (slot 2)
+    const session2 = getOrBuildSession(dateKey, 2);
+    const templateExercises2 = (state.weekTemplate2[day] || [])
+      .map(normalizeExerciseEntry)
+      .filter(Boolean);
+    const hasTemplate2 = templateExercises2.length > 0;
+    const hasSecondWorkout = !!(session2 || hasTemplate2);
+
     // What to display: a real session if one exists, otherwise the recurring template
     const exercises = session ? session.exercises : (hasTemplate ? templateExercises : []);
 
@@ -2055,10 +2122,14 @@ function renderWeekCards() {
     const right = document.createElement("div");
     right.className = "day-right";
 
-    const badge = document.createElement("span");
-    badge.className = `day-badge day-badge-${visualStatus}`;
-    badge.textContent = STATUS_LABELS[visualStatus] || "Riposo";
-    right.appendChild(badge);
+    // Su un giorno senza 1º allenamento ma con un 2º, il badge "Riposo"
+    // sarebbe fuorviante: lo stato lo comunica il blocco del 2º allenamento.
+    if (!(visualStatus === "rest" && hasSecondWorkout)) {
+      const badge = document.createElement("span");
+      badge.className = `day-badge day-badge-${visualStatus}`;
+      badge.textContent = STATUS_LABELS[visualStatus] || "Riposo";
+      right.appendChild(badge);
+    }
 
     if (isCompleted) {
       const timeChip = document.createElement("span");
@@ -2116,6 +2187,72 @@ function renderWeekCards() {
       card.appendChild(workoutFooter);
     }
 
+    // ── Blocco grafico del 2º allenamento ──
+    if (hasSecondWorkout) {
+      let visualStatus2;
+      if (session2) {
+        visualStatus2 = getSessionVisualStatus(session2, dateKey);
+      } else if (isPast) {
+        visualStatus2 = "missed";
+      } else {
+        visualStatus2 = "planned";
+      }
+
+      const canOpenSecond = !!(session2 || (hasTemplate2 && !isPast));
+      const exercises2 = session2 ? session2.exercises : templateExercises2;
+      const type2 = (session2 && session2.trainingType)
+        || (state.weekTemplateTypes2 && state.weekTemplateTypes2[day])
+        || null;
+
+      const secondRow = document.createElement("div");
+      secondRow.className = `day-second-workout day-second-${visualStatus2}`;
+
+      const secondLeft = document.createElement("div");
+      secondLeft.className = "day-second-left";
+
+      const secondLabel = document.createElement("span");
+      secondLabel.className = "day-second-label";
+      secondLabel.textContent = "2º allenamento";
+      secondLeft.appendChild(secondLabel);
+
+      const secondMeta = document.createElement("span");
+      secondMeta.className = "day-second-meta";
+      // Come la card principale: conta dal template quando esiste (esclude il
+      // riscaldamento aggiunto automaticamente alle sessioni).
+      const count2 = hasTemplate2 ? templateExercises2.length : exercises2.length;
+      secondMeta.textContent = `${type2 ? `${type2} · ` : ""}${count2} esercizio${count2 !== 1 ? "i" : ""}`;
+      if (type2) secondMeta.dataset.type = type2.toLowerCase().replace(/\s+/g, "-");
+      secondLeft.appendChild(secondMeta);
+
+      const secondRight = document.createElement("div");
+      secondRight.className = "day-second-right";
+
+      const badge2 = document.createElement("span");
+      badge2.className = `day-badge day-badge-${visualStatus2}`;
+      badge2.textContent = STATUS_LABELS[visualStatus2] || "Programmato";
+      secondRight.appendChild(badge2);
+
+      if (session2 && session2.status === "completed") {
+        const timeChip2 = document.createElement("span");
+        timeChip2.className = "day-time-chip";
+        timeChip2.textContent = formatDuration(session2.durationSeconds);
+        secondRight.appendChild(timeChip2);
+      }
+
+      secondRow.appendChild(secondLeft);
+      secondRow.appendChild(secondRight);
+
+      if (canOpenSecond) {
+        secondRow.classList.add("day-second-clickable");
+        secondRow.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openWorkoutDetail(sessionKeyFor(dateKey, 2));
+        });
+      }
+
+      card.appendChild(secondRow);
+    }
+
     // Whole card draggable (grab from the body/header) when the workout can be moved
     if (canMove) {
       card.draggable = true;
@@ -2164,7 +2301,8 @@ function showToast(message) {
 }
 
 async function moveWorkoutToDay(fromDay, toDay) {
-  const targetHadWorkout = (state.weekTemplate[toDay] || []).length > 0;
+  const targetHadWorkout = (state.weekTemplate[toDay] || []).length > 0
+    || (state.weekTemplate2[toDay] || []).length > 0;
   try {
     const res = await fetch("/api/move-exercise", {
       method: "PUT",
@@ -2176,6 +2314,9 @@ async function moveWorkoutToDay(fromDay, toDay) {
       const data = await res.json();
       state.weekTemplate = data.weekTemplate;
       state.weekTemplateTypes = data.weekTemplateTypes;
+      if (data.weekTemplate2) state.weekTemplate2 = data.weekTemplate2;
+      if (data.weekTemplateTypes2) state.weekTemplateTypes2 = data.weekTemplateTypes2;
+      normalizeWeekTemplate();
       syncWorkoutSessionsRange();
       renderWeekCards();
       renderCalendar();
@@ -2211,7 +2352,8 @@ function openWorkoutMoveMenu(fromDay, triggerBtn) {
   days.forEach((targetDay) => {
     if (targetDay === fromDay) return; // Skip current day
 
-    const targetHasWorkout = (state.weekTemplate[targetDay] || []).length > 0;
+    const targetHasWorkout = (state.weekTemplate[targetDay] || []).length > 0
+      || (state.weekTemplate2[targetDay] || []).length > 0;
     const targetType = (state.weekTemplateTypes && state.weekTemplateTypes[targetDay]) || null;
 
     const dayBtn = document.createElement("button");
@@ -2279,11 +2421,16 @@ function getAllExercises() {
 
 function renderEditor() {
   const currentDay = editorDaySelectEl.value || days[0];
-  const plannedExercises = (state.weekTemplate[currentDay] || []).map(normalizeExerciseEntry).filter(Boolean);
-  state.weekTemplate[currentDay] = plannedExercises;
+  const templateMap = getTemplateMapForSlot(editorSlot);
+  const typesMap = getTemplateTypesForSlot(editorSlot);
+  editorSlotBtns.forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.dataset.slot) === editorSlot);
+  });
+  const plannedExercises = (templateMap[currentDay] || []).map(normalizeExerciseEntry).filter(Boolean);
+  templateMap[currentDay] = plannedExercises;
   const daySet = new Set(plannedExercises.map((exercise) => exercise.name));
   const allExercises = getAllExercises();
-  const currentDayType = (state.weekTemplateTypes && state.weekTemplateTypes[currentDay]) || "";
+  const currentDayType = (typesMap && typesMap[currentDay]) || "";
   if (editorDayTypeSelectEl) editorDayTypeSelectEl.value = currentDayType;
   const selectedType = currentDayType || "all";
   const searchText = editorSearchEl ? editorSearchEl.value.trim().toLowerCase() : "";
@@ -2318,7 +2465,7 @@ function renderEditor() {
     addBtn.disabled = daySet.has(exercise.name);
 
     addBtn.addEventListener("click", () => {
-      state.weekTemplate[currentDay].push({
+      templateMap[currentDay].push({
         name: exercise.name,
         category: exercise.category,
         trainingType: exercise.trainingType,
@@ -2534,7 +2681,7 @@ function renderEditor() {
     removeBtn.textContent = "Rimuovi";
 
     removeBtn.addEventListener("click", () => {
-      state.weekTemplate[currentDay] = state.weekTemplate[currentDay].filter((_, index) => index !== exerciseIndex);
+      templateMap[currentDay] = templateMap[currentDay].filter((_, index) => index !== exerciseIndex);
       renderEditor();
       syncWorkoutSessionsRange();
       renderWeekCards();
@@ -2555,22 +2702,25 @@ function renderEditor() {
   if (!plannedExercises.length) {
     const emptyLi = document.createElement("li");
     emptyLi.className = "day-ex-empty";
-    emptyLi.textContent = "Nessun esercizio nel giorno selezionato.";
+    emptyLi.textContent = editorSlot === 2
+      ? "Nessun 2º allenamento in questo giorno. Aggiungi un esercizio per crearlo."
+      : "Nessun esercizio nel giorno selezionato.";
     dayExerciseListEl.appendChild(emptyLi);
   }
 }
 
-function openWorkoutDetail(dateKey) {
+function openWorkoutDetail(sessionKey) {
   // Ensure the session exists in state (needed to start/interact with it)
-  if (!state.workoutSessions[dateKey]) {
-    const built = getOrBuildSession(dateKey);
+  if (!state.workoutSessions[sessionKey]) {
+    const { dateKey, slot } = parseSessionKey(sessionKey);
+    const built = getOrBuildSession(dateKey, slot);
     if (!built || !built.exercises.length) return;
-    state.workoutSessions[dateKey] = built;
+    state.workoutSessions[sessionKey] = built;
   }
-  const session = state.workoutSessions[dateKey];
+  const session = state.workoutSessions[sessionKey];
   if (!session || !session.exercises.length) return;
 
-  workoutDetailDate = dateKey;
+  workoutDetailDate = sessionKey;
   renderWorkoutDetail();
   toggleWorkoutDetail(true);
 }
@@ -2828,7 +2978,9 @@ function renderWorkoutDetail() {
   }
 
   const date = dateFromIso(session.date);
-  workoutDetailKickerEl.textContent = dayLabels[session.day];
+  workoutDetailKickerEl.textContent = session.slot === 2
+    ? `${dayLabels[session.day]} · 2º allenamento`
+    : dayLabels[session.day];
   workoutDetailTitleEl.textContent = formatLongDate(date);
   workoutDetailMetaEl.textContent = `${session.exercises.length} esercizi · ${getSessionStatusLabel(session, session.date)}`;
 
@@ -3110,7 +3262,12 @@ function renderCalendar() {
     const date = new Date(gridStart);
     date.setDate(gridStart.getDate() + index);
     const dateKey = formatIsoDate(date);
-    const session = getOrBuildSession(dateKey);
+    const session1 = getOrBuildSession(dateKey, 1);
+    const session2 = getOrBuildSession(dateKey, 2);
+    const hasFirst = !!(session1 && session1.exercises.length);
+    const hasSecond = !!(session2 && session2.exercises.length);
+    // La cella riflette il 1º allenamento; se manca, il 2º.
+    const session = hasFirst ? session1 : session2;
     const visualStatus = getSessionVisualStatus(session, dateKey);
     const cell = document.createElement("button");
     cell.type = "button";
@@ -3122,17 +3279,21 @@ function renderCalendar() {
 
     if (session && session.exercises.length) {
       cell.classList.add(`calendar-cell-${visualStatus === "done" ? "done" : visualStatus === "missed" ? "missed" : "planned"}`);
+      if (hasFirst && hasSecond) {
+        cell.classList.add("calendar-cell-double");
+      }
       const score = getSessionPerformanceScore(session);
       if (visualStatus === "done") {
         const tier = getHeatTier(score);
         if (tier > 0) cell.classList.add(`calendar-heat-${tier}`);
       }
       if (Number.isFinite(score)) {
-        cell.title = `Score ${score}/100 · ${getSessionStatusLabel(session, dateKey)}`;
+        const doubleNote = hasFirst && hasSecond ? " · 2 allenamenti" : "";
+        cell.title = `Score ${score}/100 · ${getSessionStatusLabel(session, dateKey)}${doubleNote}`;
       }
       cell.addEventListener("click", () => {
         closeCalendar();
-        openWorkoutDetail(dateKey);
+        openWorkoutDetail(hasFirst ? dateKey : sessionKeyFor(dateKey, 2));
       });
     } else {
       cell.disabled = true;
@@ -3157,12 +3318,13 @@ function getPersonalWorkoutStreak() {
     const date = new Date(today);
     date.setDate(today.getDate() - offset);
     const dateKey = formatIsoDate(date);
-    const session = state.workoutSessions[dateKey];
+    const sessionsForDay = getSessionsForDate(dateKey);
     const isToday = dateKey === todayKey;
 
-    // A recorded session for this day
-    if (session && session.exercises && session.exercises.length) {
-      if (session.status === "completed") {
+    // Recorded sessions for this day (1º and/or 2º workout)
+    if (sessionsForDay.length) {
+      // Almeno un allenamento completato mantiene viva la streak del giorno.
+      if (sessionsForDay.some((s) => s.status === "completed")) {
         streak += 1;
         continue;
       }
@@ -3176,9 +3338,10 @@ function getPersonalWorkoutStreak() {
     if (isToday) continue;
 
     // Missed sessions are purged server-side, so detect a scheduled-but-skipped
-    // day from the weekly template instead.
-    const scheduled = getTemplateExercisesForDate(dateKey);
-    if (scheduled && scheduled.length) {
+    // day from the weekly template instead (either slot).
+    const scheduled = getTemplateExercisesForDate(dateKey, 1);
+    const scheduled2 = getTemplateExercisesForDate(dateKey, 2);
+    if ((scheduled && scheduled.length) || (scheduled2 && scheduled2.length)) {
       // A workout was planned for this past day but never completed → missed
       break;
     }
@@ -3831,13 +3994,23 @@ function bindEvents() {
   if (editorDayTypeSelectEl) {
     editorDayTypeSelectEl.addEventListener("change", () => {
       const currentDay = editorDaySelectEl.value || days[0];
-      if (!state.weekTemplateTypes) state.weekTemplateTypes = {};
-      state.weekTemplateTypes[currentDay] = editorDayTypeSelectEl.value || null;
+      ensureWeekTemplateTypes();
+      const typesMap = getTemplateTypesForSlot(editorSlot);
+      typesMap[currentDay] = editorDayTypeSelectEl.value || null;
       syncWorkoutSessionsRange();
       renderEditor();
       renderWeekCards();
     });
   }
+
+  editorSlotBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nextSlot = Number(btn.dataset.slot) === 2 ? 2 : 1;
+      if (nextSlot === editorSlot) return;
+      editorSlot = nextSlot;
+      renderEditor();
+    });
+  });
 
   if (editorSearchEl) {
     editorSearchEl.addEventListener("input", renderEditor);

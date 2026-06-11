@@ -121,6 +121,15 @@ function ensureStateShape(state) {
     state.weekTemplateTypes = {};
   }
 
+  // Secondo allenamento opzionale della giornata (slot 2)
+  if (!state.weekTemplate2 || typeof state.weekTemplate2 !== "object") {
+    state.weekTemplate2 = {};
+  }
+
+  if (!state.weekTemplateTypes2 || typeof state.weekTemplateTypes2 !== "object") {
+    state.weekTemplateTypes2 = {};
+  }
+
   if (!state.progress || typeof state.progress !== "object") {
     state.progress = {};
   }
@@ -160,6 +169,27 @@ function isValidWeekTemplate(weekTemplate) {
   }
 
   return validDays.every((day) => Array.isArray(weekTemplate[day]));
+}
+
+// Il secondo allenamento è sparso: solo i giorni che lo hanno compaiono come chiave.
+function isValidSecondWeekTemplate(weekTemplate2) {
+  const validDays = [
+    "lunedi",
+    "martedi",
+    "mercoledi",
+    "giovedi",
+    "venerdi",
+    "sabato",
+    "domenica"
+  ];
+
+  if (!weekTemplate2 || typeof weekTemplate2 !== "object") {
+    return false;
+  }
+
+  return Object.entries(weekTemplate2).every(
+    ([day, entries]) => validDays.includes(day) && Array.isArray(entries)
+  );
 }
 
 function isValidPersonal(personal) {
@@ -219,10 +249,14 @@ app.get("/api/state", async (req, res) => {
 
 app.put("/api/week-template", async (req, res) => {
   try {
-    const { weekTemplate, weekTemplateTypes } = req.body;
+    const { weekTemplate, weekTemplateTypes, weekTemplate2, weekTemplateTypes2 } = req.body;
 
     if (!isValidWeekTemplate(weekTemplate)) {
       return res.status(400).json({ error: "Formato weekTemplate non valido" });
+    }
+
+    if (weekTemplate2 !== undefined && !isValidSecondWeekTemplate(weekTemplate2)) {
+      return res.status(400).json({ error: "Formato weekTemplate2 non valido" });
     }
 
     const state = await readState();
@@ -230,9 +264,21 @@ app.put("/api/week-template", async (req, res) => {
     if (weekTemplateTypes && typeof weekTemplateTypes === "object") {
       state.weekTemplateTypes = weekTemplateTypes;
     }
+    if (weekTemplate2 !== undefined) {
+      state.weekTemplate2 = weekTemplate2;
+    }
+    if (weekTemplateTypes2 && typeof weekTemplateTypes2 === "object") {
+      state.weekTemplateTypes2 = weekTemplateTypes2;
+    }
     await writeState(state);
 
-    return res.json({ ok: true, weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes });
+    return res.json({
+      ok: true,
+      weekTemplate: state.weekTemplate,
+      weekTemplateTypes: state.weekTemplateTypes,
+      weekTemplate2: state.weekTemplate2,
+      weekTemplateTypes2: state.weekTemplateTypes2
+    });
   } catch (error) {
     return res.status(500).json({ error: "Errore salvataggio settimana" });
   }
@@ -361,31 +407,48 @@ app.put("/api/move-exercise", async (req, res) => {
     if (!state.weekTemplateTypes || typeof state.weekTemplateTypes !== "object") {
       state.weekTemplateTypes = {};
     }
+    if (!state.weekTemplate2 || typeof state.weekTemplate2 !== "object") {
+      state.weekTemplate2 = {};
+    }
+    if (!state.weekTemplateTypes2 || typeof state.weekTemplateTypes2 !== "object") {
+      state.weekTemplateTypes2 = {};
+    }
 
     // Scambia interi allenamenti tra due giorni (template + tipo) in modo simmetrico.
     // Funziona sia spostando su un giorno di riposo sia scambiando due giorni pieni.
-    const fromTemplate = state.weekTemplate[fromDay] || [];
-    const toTemplate = state.weekTemplate[toDay] || [];
-    const fromType = state.weekTemplateTypes[fromDay] || null;
-    const toType = state.weekTemplateTypes[toDay] || null;
+    // Lo scambio coinvolge entrambi gli slot della giornata (1º e 2º allenamento).
+    const swapEntries = (map, a, b) => {
+      const fromValue = map[a];
+      const toValue = map[b];
 
-    state.weekTemplate[fromDay] = toTemplate;
-    state.weekTemplate[toDay] = fromTemplate;
+      if (toValue !== undefined && toValue !== null) {
+        map[a] = toValue;
+      } else {
+        delete map[a];
+      }
 
-    if (toType) {
-      state.weekTemplateTypes[fromDay] = toType;
-    } else {
-      delete state.weekTemplateTypes[fromDay];
-    }
+      if (fromValue !== undefined && fromValue !== null) {
+        map[b] = fromValue;
+      } else {
+        delete map[b];
+      }
+    };
 
-    if (fromType) {
-      state.weekTemplateTypes[toDay] = fromType;
-    } else {
-      delete state.weekTemplateTypes[toDay];
-    }
+    state.weekTemplate[fromDay] = state.weekTemplate[fromDay] || [];
+    state.weekTemplate[toDay] = state.weekTemplate[toDay] || [];
+    swapEntries(state.weekTemplate, fromDay, toDay);
+    swapEntries(state.weekTemplateTypes, fromDay, toDay);
+    swapEntries(state.weekTemplate2, fromDay, toDay);
+    swapEntries(state.weekTemplateTypes2, fromDay, toDay);
 
     await writeState(state);
-    return res.json({ ok: true, weekTemplate: state.weekTemplate, weekTemplateTypes: state.weekTemplateTypes });
+    return res.json({
+      ok: true,
+      weekTemplate: state.weekTemplate,
+      weekTemplateTypes: state.weekTemplateTypes,
+      weekTemplate2: state.weekTemplate2,
+      weekTemplateTypes2: state.weekTemplateTypes2
+    });
   } catch (error) {
     return res.status(500).json({ error: "Errore nello spostamento allenamento" });
   }
@@ -462,6 +525,7 @@ module.exports = {
   app,
   ensureStateShape,
   isValidWeekTemplate,
+  isValidSecondWeekTemplate,
   isValidPersonal,
   isValidWorkoutSessions
 };

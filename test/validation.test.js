@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   ensureStateShape,
   isValidWeekTemplate,
+  isValidSecondWeekTemplate,
   isValidPersonal,
   isValidWorkoutSessions
 } = require("../server.js");
@@ -24,6 +25,8 @@ test("ensureStateShape fills all top-level keys on empty input", () => {
   assert.ok(Array.isArray(shaped.exerciseLibrary.toorx_msx50));
   assert.deepEqual(shaped.weekTemplate, {});
   assert.deepEqual(shaped.weekTemplateTypes, {});
+  assert.deepEqual(shaped.weekTemplate2, {});
+  assert.deepEqual(shaped.weekTemplateTypes2, {});
   assert.deepEqual(shaped.progress, {});
   assert.deepEqual(shaped.workoutSessions, {});
   assert.deepEqual(shaped.exerciseMeta, {});
@@ -52,6 +55,17 @@ test("isValidWeekTemplate requires every weekday to be an array", () => {
 
   assert.equal(isValidWeekTemplate(null), false);
   assert.equal(isValidWeekTemplate(undefined), false);
+});
+
+test("isValidSecondWeekTemplate accepts sparse day maps", () => {
+  assert.equal(isValidSecondWeekTemplate({}), true);
+  assert.equal(isValidSecondWeekTemplate({ lunedi: [], giovedi: [{ name: "Panca piana manubri" }] }), true);
+  assert.equal(isValidSecondWeekTemplate(emptyWeekTemplate()), true);
+
+  assert.equal(isValidSecondWeekTemplate({ lunedi: "not-an-array" }), false);
+  assert.equal(isValidSecondWeekTemplate({ notaday: [] }), false);
+  assert.equal(isValidSecondWeekTemplate(null), false);
+  assert.equal(isValidSecondWeekTemplate("garbage"), false);
 });
 
 test("isValidPersonal enforces shape", () => {
@@ -100,6 +114,27 @@ test("isValidWorkoutSessions validates each session", () => {
   assert.equal(isValidWorkoutSessions(badStatus), false);
 
   assert.equal(isValidWorkoutSessions({}), true);
+});
+
+test("isValidWorkoutSessions accepts a second daily session keyed with #2", () => {
+  const sessions = {
+    "2026-01-05": {
+      date: "2026-01-05",
+      day: "lunedi",
+      status: "completed",
+      exercises: [],
+      durationSeconds: 1800
+    },
+    "2026-01-05#2": {
+      date: "2026-01-05",
+      day: "lunedi",
+      slot: 2,
+      status: "completed",
+      exercises: [],
+      durationSeconds: 1500
+    }
+  };
+  assert.equal(isValidWorkoutSessions(sessions), true);
 });
 
 test("isValidWorkoutSessions accepts sessions carrying per-set logs", () => {
