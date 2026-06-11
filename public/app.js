@@ -461,8 +461,13 @@ const EXERCISE_DEFAULTS = {
 
 let state = null;
 let exerciseInfoPanelCurrentName = null;
-// Chiave della sessione aperta nel dettaglio: "YYYY-MM-DD" o "YYYY-MM-DD#2".
+// Chiave (data+slot) della sessione da cui è stato aperto il pannello info esercizio.
+let exerciseInfoPanelSessionKey = null;
+// Data (YYYY-MM-DD) dell'allenamento aperto nel dettaglio. Il dettaglio mostra
+// entrambi gli allenamenti della giornata (slot 1 e 2) impilati.
 let workoutDetailDate = null;
+// Timer attivi nel dettaglio: { session, el } aggiornati ogni secondo.
+let detailTimerEls = [];
 // Slot della scheda in modifica nell'editor: 1 = allenamento principale, 2 = secondo.
 let editorSlot = 1;
 let calendarMonthCursor = startOfMonth(new Date());
@@ -793,16 +798,18 @@ function drawProgressionChart(canvas, dates, values, unit) {
   ctx.fillText(`${Math.round(values[values.length - 1])} ${unit}`, lastX - 2, lastY - 8);
 }
 
-function openExerciseInfoPanel(name, sets, reps) {
+function openExerciseInfoPanel(name, sets, reps, sessionKey) {
   exerciseInfoPanelCurrentName = name;
+  exerciseInfoPanelSessionKey = sessionKey || null;
   const saved = (state.exerciseMeta && state.exerciseMeta[name]) || {};
   const defaults = EXERCISE_DEFAULTS[name] || {};
   exerciseInfoTitleEl.textContent = name;
 
   // Prefer the session's stored exercise weight (historical snapshot) over the global meta weight.
   // This prevents the panel from showing a later-updated weight when reviewing completed sessions.
-  const sessionExercise = workoutDetailDate && state.workoutSessions[workoutDetailDate]
-    ? state.workoutSessions[workoutDetailDate].exercises.find((e) => e.name === name)
+  const detailSession = sessionKey ? state.workoutSessions[sessionKey] : null;
+  const sessionExercise = detailSession
+    ? detailSession.exercises.find((e) => e.name === name)
     : null;
   const sessionWeight = sessionExercise && typeof sessionExercise.weight === "number" ? sessionExercise.weight : null;
   const effectiveWeight = sessionWeight !== null
@@ -815,9 +822,9 @@ function openExerciseInfoPanel(name, sets, reps) {
   let resolvedSets = sets;
   let resolvedReps = reps;
   if (resolvedSets == null || resolvedReps == null) {
-    // Try to find in current session
-    if (workoutDetailDate && state.workoutSessions[workoutDetailDate]) {
-      const ex = state.workoutSessions[workoutDetailDate].exercises.find((e) => e.name === name);
+    // Try to find in the session the panel was opened from
+    if (detailSession) {
+      const ex = detailSession.exercises.find((e) => e.name === name);
       if (ex) { resolvedSets = ex.sets; resolvedReps = ex.reps; }
     }
     // Fallback: check both week templates for any day that has this exercise
@@ -895,10 +902,10 @@ async function saveExerciseInfoEntry() {
     });
   }
 
-  // 3. Update the current session's exercise weight ONLY if the session is still
-  //    in-progress or paused (i.e. NOT completed). Never rewrite finished history.
-  if (workoutDetailDate && state.workoutSessions[workoutDetailDate]) {
-    const session = state.workoutSessions[workoutDetailDate];
+  // 3. Update the originating session's exercise weight ONLY if the session is
+  //    still in-progress or paused (i.e. NOT completed). Never rewrite history.
+  if (exerciseInfoPanelSessionKey && state.workoutSessions[exerciseInfoPanelSessionKey]) {
+    const session = state.workoutSessions[exerciseInfoPanelSessionKey];
     if (session.status === "in_progress" || session.status === "paused") {
       const ex = session.exercises.find((e) => e.name === name);
       if (ex && ex.supportsWeight) ex.weight = weightSave;
@@ -1220,6 +1227,7 @@ function openProgressionReview(session, updates) {
   }
 
   pendingProgressionReview = {
+    sessionKey: sessionKeyFor(session.date, session.slot),
     sessionDate: session.date,
     updates: updates.map((entry) => ({ ...entry }))
   };
@@ -1739,6 +1747,23 @@ function getSessionVisualStatus(session, dateKey) {
   return "planned";
 }
 
+// Stato visivo aggregato di una giornata con uno o due allenamenti.
+// Priorità: in corso > in pausa > tutti completati > (passato) perso > programmato.
+function getCombinedDayStatus(activeSlots, isPast) {
+  if (!activeSlots.length) return "rest";
+
+  const sessions = activeSlots.map((s) => s.session).filter(Boolean);
+  if (sessions.some((s) => s.status === "in_progress")) return "live";
+  if (sessions.some((s) => s.status === "paused")) return "paused";
+
+  if (activeSlots.every((s) => s.session && s.session.status === "completed")) {
+    return "done";
+  }
+
+  if (isPast) return "missed";
+  return "planned";
+}
+
 function getSessionStatusLabel(session, dateKey) {
   const visualStatus = getSessionVisualStatus(session, dateKey);
   if (visualStatus === "done") {
@@ -1819,11 +1844,14 @@ async function loadState() {
   normalizeWorkoutSessions();
   if (!state.exerciseMeta || typeof state.exerciseMeta !== "object") state.exerciseMeta = {};
   // Remove stale planned sessions — they are always computed on the fly
+  const todayKey = getTodayKey();
   Object.keys(state.workoutSessions).forEach((key) => {
     const s = state.workoutSessions[key];
     if (s.status === "planned") delete state.workoutSessions[key];
-    // Drop missed sessions older than today — no value in keeping them
-    if (s.status === "missed" && key < getTodayKey()) delete state.workoutSessions[key];
+    // Drop missed sessions older than today — no value in keeping them.
+    // Le chiavi del 2º allenamento hanno suffisso "#2": confronta la data reale.
+    const sessionDate = (s && s.date) || key.split("#")[0];
+    if (s.status === "missed" && sessionDate < todayKey) delete state.workoutSessions[key];
   });
 }
 
@@ -2014,44 +2042,58 @@ function renderWeekCards() {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
     const dateKey = formatIsoDate(date);
-    const session = getOrBuildSession(dateKey);
-    const templateExercises = (state.weekTemplate[day] || [])
-      .map(normalizeExerciseEntry)
-      .filter(Boolean);
-    const hasTemplate = templateExercises.length > 0;
     const isPast = dateKey < getTodayKey();
 
-    // 2º allenamento della giornata (slot 2)
-    const session2 = getOrBuildSession(dateKey, 2);
-    const templateExercises2 = (state.weekTemplate2[day] || [])
-      .map(normalizeExerciseEntry)
-      .filter(Boolean);
-    const hasTemplate2 = templateExercises2.length > 0;
-    const hasSecondWorkout = !!(session2 || hasTemplate2);
+    // Entrambi gli allenamenti della giornata (slot 1 e 2).
+    const slotData = [1, 2].map((slot) => {
+      const session = getOrBuildSession(dateKey, slot);
+      const templateMap = getTemplateMapForSlot(slot) || {};
+      const templateExercises = (templateMap[day] || [])
+        .map(normalizeExerciseEntry)
+        .filter(Boolean);
+      const typesMap = getTemplateTypesForSlot(slot) || {};
+      const type = (session && session.trainingType) || typesMap[day] || null;
+      return {
+        slot,
+        session,
+        templateExercises,
+        hasTemplate: templateExercises.length > 0,
+        type
+      };
+    });
 
-    // What to display: a real session if one exists, otherwise the recurring template
-    const exercises = session ? session.exercises : (hasTemplate ? templateExercises : []);
+    // Slot "attivi": quelli con una sessione reale o un template programmato.
+    const activeSlots = slotData.filter((s) => s.session || s.hasTemplate);
+    const isRest = activeSlots.length === 0;
+    const isDouble = activeSlots.length > 1;
 
-    // A past templated day that was never recorded still counts visually as "missed"
-    let visualStatus;
-    if (session) {
-      visualStatus = getSessionVisualStatus(session, dateKey);
-    } else if (hasTemplate && isPast) {
-      visualStatus = "missed";
-    } else {
-      visualStatus = "rest";
-    }
+    // Tipo combinato mostrato sulla card, es. "Spinta + Trazione".
+    const combinedType = activeSlots.map((s) => s.type).filter(Boolean).join(" + ");
+    const singleType = activeSlots.length === 1 ? activeSlots[0].type : null;
 
-    const isRest = !exercises.length;
-    const isCompleted = !!(session && session.status === "completed");
-    // Movable whenever there's a workout planned for that weekday and it isn't already done
-    const canMove = hasTemplate && !isCompleted;
-    const canOpenDetail = !isRest && (session || (hasTemplate && !isPast));
+    // Stato visivo complessivo del giorno (aggrega i due allenamenti).
+    const visualStatus = getCombinedDayStatus(activeSlots, isPast);
+    const allCompleted = !isRest && activeSlots.every((s) => s.session && s.session.status === "completed");
+
+    // Esercizi totali (dal template quando presente, altrimenti dalla sessione).
+    const totalCount = activeSlots.reduce((sum, s) => {
+      return sum + (s.hasTemplate ? s.templateExercises.length : (s.session ? s.session.exercises.length : 0));
+    }, 0);
+
+    // Tempo totale (somma) quando entrambi gli allenamenti sono completati.
+    const totalDuration = activeSlots.reduce((sum, s) => {
+      return sum + (s.session && s.session.status === "completed" ? (s.session.durationSeconds || 0) : 0);
+    }, 0);
+
+    const anyTemplate = activeSlots.some((s) => s.hasTemplate);
+    // Spostabile se c'è almeno un template e non è tutto già completato.
+    const canMove = anyTemplate && !allCompleted;
+    const canOpenDetail = !isRest && activeSlots.some((s) => s.session || (s.hasTemplate && !isPast));
 
     const card = document.createElement("div");
     card.className = `day-card day-card-${visualStatus}`
       + (dateKey === getTodayKey() ? " day-card-today" : "")
-      + (isCompleted ? " day-card-locked" : "");
+      + (allCompleted ? " day-card-locked" : "");
     card.dataset.day = day;
     card.setAttribute("data-drop-zone", day);
 
@@ -2106,35 +2148,33 @@ function renderWeekCards() {
 
     const categoryLabel = document.createElement("div");
     categoryLabel.className = "day-category";
-    const sessionType = (session && session.trainingType)
-      || (state.weekTemplateTypes && state.weekTemplateTypes[day])
-      || null;
-    if (sessionType) {
-      categoryLabel.textContent = sessionType;
-      categoryLabel.dataset.type = sessionType.toLowerCase().replace(/\s+/g, "-");
+    if (combinedType) {
+      categoryLabel.textContent = combinedType;
+      // Colore per tipo solo quando ce n'è uno solo; col "+" resta neutro.
+      if (singleType) {
+        categoryLabel.dataset.type = singleType.toLowerCase().replace(/\s+/g, "-");
+      } else {
+        categoryLabel.classList.add("day-category-double");
+      }
     }
 
     dayInfo.appendChild(title);
-    if (sessionType) dayInfo.appendChild(categoryLabel);
+    if (combinedType) dayInfo.appendChild(categoryLabel);
     dayLeft.appendChild(dayNum);
     dayLeft.appendChild(dayInfo);
 
     const right = document.createElement("div");
     right.className = "day-right";
 
-    // Su un giorno senza 1º allenamento ma con un 2º, il badge "Riposo"
-    // sarebbe fuorviante: lo stato lo comunica il blocco del 2º allenamento.
-    if (!(visualStatus === "rest" && hasSecondWorkout)) {
-      const badge = document.createElement("span");
-      badge.className = `day-badge day-badge-${visualStatus}`;
-      badge.textContent = STATUS_LABELS[visualStatus] || "Riposo";
-      right.appendChild(badge);
-    }
+    const badge = document.createElement("span");
+    badge.className = `day-badge day-badge-${visualStatus}`;
+    badge.textContent = STATUS_LABELS[visualStatus] || "Riposo";
+    right.appendChild(badge);
 
-    if (isCompleted) {
+    if (allCompleted && totalDuration > 0) {
       const timeChip = document.createElement("span");
       timeChip.className = "day-time-chip";
-      timeChip.textContent = formatDuration(session.durationSeconds);
+      timeChip.textContent = formatDuration(totalDuration);
       right.appendChild(timeChip);
     }
 
@@ -2147,10 +2187,10 @@ function renderWeekCards() {
       const workoutFooter = document.createElement("div");
       workoutFooter.className = "day-workout-footer";
 
-      const count = hasTemplate ? templateExercises.length : exercises.length;
       const exerciseCount = document.createElement("span");
       exerciseCount.className = "day-exercise-count";
-      exerciseCount.textContent = `${count} esercizio${count !== 1 ? "i" : ""}`;
+      const countText = `${totalCount} esercizio${totalCount !== 1 ? "i" : ""}`;
+      exerciseCount.textContent = isDouble ? `2 allenamenti · ${countText}` : countText;
       workoutFooter.appendChild(exerciseCount);
 
       if (canMove) {
@@ -2176,7 +2216,7 @@ function renderWeekCards() {
         });
 
         workoutFooter.appendChild(moveBtn);
-      } else if (isCompleted) {
+      } else if (allCompleted) {
         const lock = document.createElement("span");
         lock.className = "day-move-locked";
         lock.innerHTML = `<span aria-hidden="true">🔒</span> Completato`;
@@ -2185,72 +2225,6 @@ function renderWeekCards() {
       }
 
       card.appendChild(workoutFooter);
-    }
-
-    // ── Blocco grafico del 2º allenamento ──
-    if (hasSecondWorkout) {
-      let visualStatus2;
-      if (session2) {
-        visualStatus2 = getSessionVisualStatus(session2, dateKey);
-      } else if (isPast) {
-        visualStatus2 = "missed";
-      } else {
-        visualStatus2 = "planned";
-      }
-
-      const canOpenSecond = !!(session2 || (hasTemplate2 && !isPast));
-      const exercises2 = session2 ? session2.exercises : templateExercises2;
-      const type2 = (session2 && session2.trainingType)
-        || (state.weekTemplateTypes2 && state.weekTemplateTypes2[day])
-        || null;
-
-      const secondRow = document.createElement("div");
-      secondRow.className = `day-second-workout day-second-${visualStatus2}`;
-
-      const secondLeft = document.createElement("div");
-      secondLeft.className = "day-second-left";
-
-      const secondLabel = document.createElement("span");
-      secondLabel.className = "day-second-label";
-      secondLabel.textContent = "2º allenamento";
-      secondLeft.appendChild(secondLabel);
-
-      const secondMeta = document.createElement("span");
-      secondMeta.className = "day-second-meta";
-      // Come la card principale: conta dal template quando esiste (esclude il
-      // riscaldamento aggiunto automaticamente alle sessioni).
-      const count2 = hasTemplate2 ? templateExercises2.length : exercises2.length;
-      secondMeta.textContent = `${type2 ? `${type2} · ` : ""}${count2} esercizio${count2 !== 1 ? "i" : ""}`;
-      if (type2) secondMeta.dataset.type = type2.toLowerCase().replace(/\s+/g, "-");
-      secondLeft.appendChild(secondMeta);
-
-      const secondRight = document.createElement("div");
-      secondRight.className = "day-second-right";
-
-      const badge2 = document.createElement("span");
-      badge2.className = `day-badge day-badge-${visualStatus2}`;
-      badge2.textContent = STATUS_LABELS[visualStatus2] || "Programmato";
-      secondRight.appendChild(badge2);
-
-      if (session2 && session2.status === "completed") {
-        const timeChip2 = document.createElement("span");
-        timeChip2.className = "day-time-chip";
-        timeChip2.textContent = formatDuration(session2.durationSeconds);
-        secondRight.appendChild(timeChip2);
-      }
-
-      secondRow.appendChild(secondLeft);
-      secondRow.appendChild(secondRight);
-
-      if (canOpenSecond) {
-        secondRow.classList.add("day-second-clickable");
-        secondRow.addEventListener("click", (e) => {
-          e.stopPropagation();
-          openWorkoutDetail(sessionKeyFor(dateKey, 2));
-        });
-      }
-
-      card.appendChild(secondRow);
     }
 
     // Whole card draggable (grab from the body/header) when the workout can be moved
@@ -2709,18 +2683,24 @@ function renderEditor() {
   }
 }
 
-function openWorkoutDetail(sessionKey) {
-  // Ensure the session exists in state (needed to start/interact with it)
-  if (!state.workoutSessions[sessionKey]) {
-    const { dateKey, slot } = parseSessionKey(sessionKey);
-    const built = getOrBuildSession(dateKey, slot);
-    if (!built || !built.exercises.length) return;
-    state.workoutSessions[sessionKey] = built;
-  }
-  const session = state.workoutSessions[sessionKey];
-  if (!session || !session.exercises.length) return;
+function openWorkoutDetail(dateKey) {
+  // Materializza entrambi gli allenamenti della giornata (slot 1 e 2) come
+  // sessioni reali, così possono essere avviati/modificati indipendentemente.
+  let hasAny = false;
+  [1, 2].forEach((slot) => {
+    const key = sessionKeyFor(dateKey, slot);
+    if (!state.workoutSessions[key]) {
+      const built = getOrBuildSession(dateKey, slot);
+      if (built && built.exercises.length) {
+        state.workoutSessions[key] = built;
+      }
+    }
+    const existing = state.workoutSessions[key];
+    if (existing && existing.exercises.length) hasAny = true;
+  });
+  if (!hasAny) return;
 
-  workoutDetailDate = sessionKey;
+  workoutDetailDate = dateKey;
   renderWorkoutDetail();
   toggleWorkoutDetail(true);
 }
@@ -2740,14 +2720,20 @@ function startTimerLoop() {
   stopTimerLoop();
   timerIntervalId = window.setInterval(() => {
     if (!workoutDetailDate) {
-      return;
-    }
-    const session = state.workoutSessions[workoutDetailDate];
-    if (!session || session.status !== "in_progress") {
       stopTimerLoop();
       return;
     }
-    workoutTimerEl.textContent = formatDuration(getSessionElapsedSeconds(session));
+    // Aggiorna il timer di ogni allenamento in corso (slot 1 e/o 2).
+    let anyRunning = false;
+    detailTimerEls.forEach(({ session, el }) => {
+      if (session && session.status === "in_progress") {
+        el.textContent = formatDuration(getSessionElapsedSeconds(session));
+        anyRunning = true;
+      }
+    });
+    if (!anyRunning) {
+      stopTimerLoop();
+    }
   }, 1000);
 }
 
@@ -2971,77 +2957,153 @@ function buildSetLogger(exercise, exerciseIndex, session, readOnly) {
 }
 
 function renderWorkoutDetail() {
-  const session = workoutDetailDate ? state.workoutSessions[workoutDetailDate] : null;
-  if (!session) {
+  const dateKey = workoutDetailDate;
+  // Tutti gli allenamenti della giornata (1º e 2º), in ordine di slot.
+  const sessions = dateKey
+    ? [1, 2]
+        .map((slot) => state.workoutSessions[sessionKeyFor(dateKey, slot)])
+        .filter((s) => s && Array.isArray(s.exercises) && s.exercises.length)
+    : [];
+
+  if (!sessions.length) {
     closeWorkoutDetail();
     return;
   }
 
-  const date = dateFromIso(session.date);
-  workoutDetailKickerEl.textContent = session.slot === 2
-    ? `${dayLabels[session.day]} · 2º allenamento`
-    : dayLabels[session.day];
+  const date = dateFromIso(dateKey);
+  const day = sessions[0].day;
+  workoutDetailKickerEl.textContent = dayLabels[day];
   workoutDetailTitleEl.textContent = formatLongDate(date);
-  workoutDetailMetaEl.textContent = `${session.exercises.length} esercizi · ${getSessionStatusLabel(session, session.date)}`;
 
+  const typesSummary = sessions.map((s) => s.trainingType).filter(Boolean).join(" + ");
+  const totalExercises = sessions.reduce((sum, s) => sum + s.exercises.length, 0);
+  workoutDetailMetaEl.textContent = sessions.length > 1
+    ? `2 allenamenti${typesSummary ? ` · ${typesSummary}` : ""} · ${totalExercises} esercizi`
+    : `${totalExercises} esercizi · ${getSessionStatusLabel(sessions[0], dateKey)}`;
+
+  // Il timer/summary condivisi in testata non servono: ogni sezione ha i propri.
+  workoutTimerEl.classList.add("hidden");
+  workoutCompletedSummaryEl.classList.add("hidden");
   workoutActionsEl.innerHTML = "";
   workoutExerciseListEl.innerHTML = "";
 
-  workoutTimerEl.classList.toggle("hidden", session.status === "completed" || session.status === "planned" || session.status === "missed");
-  workoutCompletedSummaryEl.classList.toggle("hidden", session.status !== "completed");
+  detailTimerEls = [];
+  let anyRunning = false;
 
-  if (session.status === "completed") {
-    workoutCompletedSummaryEl.textContent = `Tempo finale ${formatDuration(session.durationSeconds)} · ${getCompletedExerciseCount(session)}/${session.exercises.length} esercizi completati`;
-    stopTimerLoop();
+  sessions.forEach((session) => {
+    const orderLabel = sessions.length > 1
+      ? (session.slot === 2 ? "2º allenamento" : "1º allenamento")
+      : "";
+    workoutExerciseListEl.appendChild(buildWorkoutSection(session, orderLabel));
+    if (session.status === "in_progress") anyRunning = true;
+  });
 
-    const weightedExercises = session.exercises.filter((exercise) => exercise.supportsWeight);
-    if (weightedExercises.length) {
-      const hint = document.createElement("div");
-      hint.className = "progression-hint";
-      hint.textContent = "Progressione automatica attiva: al termine del workout i carichi consigliati vengono aggiornati in base a completamento, durata e trend recente.";
-      workoutActionsEl.appendChild(hint);
-    }
-  } else if (session.status === "in_progress" || session.status === "paused") {
-    workoutTimerEl.textContent = formatDuration(getSessionElapsedSeconds(session));
-    if (session.status === "in_progress") {
-      startTimerLoop();
-    } else {
-      stopTimerLoop();
-    }
+  if (anyRunning) {
+    startTimerLoop();
   } else {
     stopTimerLoop();
   }
 
+  // Una sola nota di giornata, condivisa tra i due allenamenti.
+  if (sessions.some((s) => s.status === "completed")) {
+    workoutExerciseListEl.appendChild(buildWorkoutDiaryNote(dateKey));
+  }
+}
+
+// Costruisce la sezione di UN allenamento: testata (tipo + stato + timer),
+// pulsanti azione propri, lista esercizi e revisione progressione.
+function buildWorkoutSection(session, orderLabel) {
+  const sectionKey = sessionKeyFor(session.date, session.slot);
+  const section = document.createElement("section");
+  section.className = `workout-section workout-section-${session.status}`;
+
+  // ── Testata ──
+  const head = document.createElement("div");
+  head.className = "workout-section-head";
+
+  const headInfo = document.createElement("div");
+  headInfo.className = "workout-section-info";
+
+  if (orderLabel) {
+    const order = document.createElement("span");
+    order.className = "workout-section-order";
+    order.textContent = orderLabel;
+    headInfo.appendChild(order);
+  }
+
+  const typeTitle = document.createElement("h3");
+  typeTitle.className = "workout-section-type";
+  typeTitle.textContent = session.trainingType || "Allenamento";
+  if (session.trainingType) {
+    typeTitle.dataset.type = session.trainingType.toLowerCase().replace(/\s+/g, "-");
+  }
+  headInfo.appendChild(typeTitle);
+
+  const statusLine = document.createElement("span");
+  statusLine.className = "workout-section-status";
+  statusLine.textContent = `${session.exercises.length} esercizi · ${getSessionStatusLabel(session, session.date)}`;
+  headInfo.appendChild(statusLine);
+
+  head.appendChild(headInfo);
+
+  const headRight = document.createElement("div");
+  headRight.className = "workout-section-headright";
+  if (session.status === "in_progress" || session.status === "paused") {
+    const timer = document.createElement("div");
+    timer.className = "workout-timer";
+    timer.textContent = formatDuration(getSessionElapsedSeconds(session));
+    headRight.appendChild(timer);
+    detailTimerEls.push({ session, el: timer });
+  } else if (session.status === "completed") {
+    const summary = document.createElement("div");
+    summary.className = "workout-completed-summary";
+    summary.textContent = `${formatDuration(session.durationSeconds)} · ${getCompletedExerciseCount(session)}/${session.exercises.length}`;
+    headRight.appendChild(summary);
+  }
+  head.appendChild(headRight);
+  section.appendChild(head);
+
+  // ── Azioni (start / pausa / fine / annulla) ──
+  const actions = document.createElement("div");
+  actions.className = "workout-actions";
+
   if (session.status === "planned") {
     if (session.date === getTodayKey()) {
-      workoutActionsEl.appendChild(createActionButton("INIZIA ALLENAMENTO", "workout-start-btn", async () => {
+      actions.appendChild(createActionButton("INIZIA ALLENAMENTO", "workout-start-btn", async () => {
         await handleStartWorkout(session);
       }));
     } else {
       const plannedNote = document.createElement("div");
       plannedNote.className = "workout-planned-note";
       plannedNote.textContent = "Puoi iniziare questo allenamento solo nel giorno programmato.";
-      workoutActionsEl.appendChild(plannedNote);
+      actions.appendChild(plannedNote);
     }
-  }
-
-  if (session.status === "in_progress" || session.status === "paused") {
-    workoutActionsEl.appendChild(createActionButton(session.status === "in_progress" ? "▌▌ Pausa" : "▶ Riprendi", "workout-control-btn", async () => {
+  } else if (session.status === "in_progress" || session.status === "paused") {
+    actions.appendChild(createActionButton(session.status === "in_progress" ? "▌▌ Pausa" : "▶ Riprendi", "workout-control-btn", async () => {
       await handlePauseWorkout(session);
     }));
-    workoutActionsEl.appendChild(createActionButton("■ Fine", "workout-stop-btn", async () => {
+    actions.appendChild(createActionButton("■ Fine", "workout-stop-btn", async () => {
       await handleFinishWorkout(session);
     }));
-    workoutActionsEl.appendChild(createActionButton("↺ Annulla", "workout-cancel-btn", async () => {
+    actions.appendChild(createActionButton("↺ Annulla", "workout-cancel-btn", async () => {
       await handleCancelWorkout(session);
     }));
+  } else if (session.status === "completed") {
+    const weightedExercises = session.exercises.filter((exercise) => exercise.supportsWeight);
+    if (weightedExercises.length) {
+      const hint = document.createElement("div");
+      hint.className = "progression-hint";
+      hint.textContent = "Progressione automatica attiva: al termine del workout i carichi consigliati vengono aggiornati in base a completamento, durata e trend recente.";
+      actions.appendChild(hint);
+    }
   }
+  section.appendChild(actions);
 
+  // ── Lista esercizi ──
   const timeline = document.createElement("div");
   timeline.className = "exercise-timeline";
 
   const showCheckbox = session.status === "in_progress" || session.status === "paused";
-  // Show the read-only logged sets recap on finished sessions too.
   const showSetRecap = session.status === "completed";
 
   session.exercises.forEach((exercise, index) => {
@@ -3065,7 +3127,6 @@ function renderWorkoutDetail() {
       checkbox.addEventListener("change", async () => {
         const ex = session.exercises[index];
         ex.completed = checkbox.checked;
-        // Keep the per-set log in sync when toggling the whole exercise.
         if (!exercise.warmup) {
           ensureLoggedSets(ex).forEach((s) => { s.done = checkbox.checked; });
         }
@@ -3104,135 +3165,139 @@ function renderWorkoutDetail() {
     row.appendChild(content);
     timeline.appendChild(row);
 
-    // Per-set logger (active workouts) or read-only recap (completed). Warmup
-    // exercises stay simple — they keep just the single checkbox above.
     if (!exercise.warmup && (showCheckbox || showSetRecap)) {
       const logger = buildSetLogger(exercise, index, session, showSetRecap);
       if (logger) timeline.appendChild(logger);
     }
 
-    // Click on content area opens exercise detail panel
     content.addEventListener("click", (e) => {
       e.stopPropagation();
-      openExerciseInfoPanel(exercise.name, exercise.sets, exercise.reps);
+      openExerciseInfoPanel(exercise.name, exercise.sets, exercise.reps, sectionKey);
     });
     point.addEventListener("click", (e) => {
       e.stopPropagation();
-      openExerciseInfoPanel(exercise.name, exercise.sets, exercise.reps);
+      openExerciseInfoPanel(exercise.name, exercise.sets, exercise.reps, sectionKey);
     });
   });
 
-  workoutExerciseListEl.appendChild(timeline);
+  section.appendChild(timeline);
 
+  // ── Revisione progressione (per questo allenamento) ──
   if (
     session.status === "completed"
     && pendingProgressionReview
-    && pendingProgressionReview.sessionDate === session.date
+    && pendingProgressionReview.sessionKey === sectionKey
     && Array.isArray(pendingProgressionReview.updates)
     && pendingProgressionReview.updates.length
   ) {
-    const reviewCard = document.createElement("div");
-    reviewCard.className = "progression-review-card";
-
-    const reviewTitle = document.createElement("h3");
-    reviewTitle.textContent = "Nuovi pesi consigliati";
-    reviewCard.appendChild(reviewTitle);
-
-    const reviewSub = document.createElement("p");
-    reviewSub.className = "progression-review-sub";
-    reviewSub.textContent = "Modifica i valori se vuoi, poi salva o ignora.";
-    reviewCard.appendChild(reviewSub);
-
-    const reviewList = document.createElement("div");
-    reviewList.className = "progression-review-list";
-
-    pendingProgressionReview.updates.forEach((entry, index) => {
-      const row = document.createElement("div");
-      row.className = "progression-review-row";
-
-      const info = document.createElement("div");
-      info.className = "progression-review-info";
-
-      const name = document.createElement("strong");
-      name.textContent = entry.name;
-
-      const from = document.createElement("span");
-      from.textContent = `Attuale: ${entry.from} kg`;
-
-      info.appendChild(name);
-      info.appendChild(from);
-
-      const input = document.createElement("input");
-      input.type = "number";
-      input.step = "0.5";
-      input.min = "0.5";
-      input.value = String(entry.suggested ?? entry.to);
-      input.addEventListener("input", () => {
-        const parsed = Number(input.value);
-        pendingProgressionReview.updates[index].suggested = Number.isNaN(parsed) ? entry.suggested : parsed;
-      });
-
-      row.appendChild(info);
-      row.appendChild(input);
-      reviewList.appendChild(row);
-    });
-
-    reviewCard.appendChild(reviewList);
-
-    const actions = document.createElement("div");
-    actions.className = "progression-review-actions";
-
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "btn-save";
-    saveBtn.textContent = "Salva consigli";
-    saveBtn.addEventListener("click", confirmProgressionReview);
-
-    const ignoreBtn = document.createElement("button");
-    ignoreBtn.type = "button";
-    ignoreBtn.className = "workout-cancel-btn";
-    ignoreBtn.textContent = "Ignora";
-    ignoreBtn.addEventListener("click", dismissProgressionReview);
-
-    actions.appendChild(saveBtn);
-    actions.appendChild(ignoreBtn);
-    reviewCard.appendChild(actions);
-    workoutExerciseListEl.appendChild(reviewCard);
+    section.appendChild(buildProgressionReviewCard());
   }
 
-  // Diary note section (only for completed workouts)
-  if (session.status === "completed") {
-    const existingEntry = state.personal.diary.find((e) => e.date === session.date);
-    const noteWrap = document.createElement("div");
-    noteWrap.className = "workout-diary-note";
-    const label = document.createElement("label");
-    label.textContent = "Nota allenamento";
-    const textarea = document.createElement("textarea");
-    textarea.placeholder = "Come è andato? Annotazioni, sensazioni...";
-    textarea.value = existingEntry ? existingEntry.text : "";
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "workout-diary-save";
-    saveBtn.textContent = "Salva nota";
-    saveBtn.addEventListener("click", async () => {
-      const text = textarea.value.trim();
-      if (!text) return;
-      const idx = state.personal.diary.findIndex((e) => e.date === session.date);
-      if (idx >= 0) {
-        state.personal.diary[idx].text = text;
-      } else {
-        state.personal.diary.push({ date: session.date, text });
-      }
-      state.personal.diary.sort((a, b) => b.date.localeCompare(a.date));
-      await savePersonalState();
-      saveBtn.textContent = "✓ Salvato";
-      setTimeout(() => { saveBtn.textContent = "Salva nota"; }, 2000);
+  return section;
+}
+
+function buildProgressionReviewCard() {
+  const reviewCard = document.createElement("div");
+  reviewCard.className = "progression-review-card";
+
+  const reviewTitle = document.createElement("h3");
+  reviewTitle.textContent = "Nuovi pesi consigliati";
+  reviewCard.appendChild(reviewTitle);
+
+  const reviewSub = document.createElement("p");
+  reviewSub.className = "progression-review-sub";
+  reviewSub.textContent = "Modifica i valori se vuoi, poi salva o ignora.";
+  reviewCard.appendChild(reviewSub);
+
+  const reviewList = document.createElement("div");
+  reviewList.className = "progression-review-list";
+
+  pendingProgressionReview.updates.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "progression-review-row";
+
+    const info = document.createElement("div");
+    info.className = "progression-review-info";
+
+    const name = document.createElement("strong");
+    name.textContent = entry.name;
+
+    const from = document.createElement("span");
+    from.textContent = `Attuale: ${entry.from} kg`;
+
+    info.appendChild(name);
+    info.appendChild(from);
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = "0.5";
+    input.min = "0.5";
+    input.value = String(entry.suggested ?? entry.to);
+    input.addEventListener("input", () => {
+      const parsed = Number(input.value);
+      pendingProgressionReview.updates[index].suggested = Number.isNaN(parsed) ? entry.suggested : parsed;
     });
-    noteWrap.appendChild(label);
-    noteWrap.appendChild(textarea);
-    noteWrap.appendChild(saveBtn);
-    workoutExerciseListEl.appendChild(noteWrap);
-  }
+
+    row.appendChild(info);
+    row.appendChild(input);
+    reviewList.appendChild(row);
+  });
+
+  reviewCard.appendChild(reviewList);
+
+  const actions = document.createElement("div");
+  actions.className = "progression-review-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "btn-save";
+  saveBtn.textContent = "Salva consigli";
+  saveBtn.addEventListener("click", confirmProgressionReview);
+
+  const ignoreBtn = document.createElement("button");
+  ignoreBtn.type = "button";
+  ignoreBtn.className = "workout-cancel-btn";
+  ignoreBtn.textContent = "Ignora";
+  ignoreBtn.addEventListener("click", dismissProgressionReview);
+
+  actions.appendChild(saveBtn);
+  actions.appendChild(ignoreBtn);
+  reviewCard.appendChild(actions);
+  return reviewCard;
+}
+
+// Nota di giornata (una sola per data, condivisa tra i due allenamenti).
+function buildWorkoutDiaryNote(dateKey) {
+  const existingEntry = state.personal.diary.find((e) => e.date === dateKey);
+  const noteWrap = document.createElement("div");
+  noteWrap.className = "workout-diary-note";
+  const label = document.createElement("label");
+  label.textContent = "Nota allenamento";
+  const textarea = document.createElement("textarea");
+  textarea.placeholder = "Come è andato? Annotazioni, sensazioni...";
+  textarea.value = existingEntry ? existingEntry.text : "";
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "workout-diary-save";
+  saveBtn.textContent = "Salva nota";
+  saveBtn.addEventListener("click", async () => {
+    const text = textarea.value.trim();
+    if (!text) return;
+    const idx = state.personal.diary.findIndex((e) => e.date === dateKey);
+    if (idx >= 0) {
+      state.personal.diary[idx].text = text;
+    } else {
+      state.personal.diary.push({ date: dateKey, text });
+    }
+    state.personal.diary.sort((a, b) => b.date.localeCompare(a.date));
+    await savePersonalState();
+    saveBtn.textContent = "✓ Salvato";
+    setTimeout(() => { saveBtn.textContent = "Salva nota"; }, 2000);
+  });
+  noteWrap.appendChild(label);
+  noteWrap.appendChild(textarea);
+  noteWrap.appendChild(saveBtn);
+  return noteWrap;
 }
 
 function openCalendar() {
@@ -3293,7 +3358,7 @@ function renderCalendar() {
       }
       cell.addEventListener("click", () => {
         closeCalendar();
-        openWorkoutDetail(hasFirst ? dateKey : sessionKeyFor(dateKey, 2));
+        openWorkoutDetail(dateKey);
       });
     } else {
       cell.disabled = true;

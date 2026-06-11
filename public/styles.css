@@ -436,69 +436,10 @@ select:focus {
   background: rgba(232, 255, 71, 0.2);
 }
 
-/* ──── Secondo allenamento della giornata ──── */
-.day-second-workout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 20px 14px;
-  border-top: 1px dashed var(--border);
-  margin-top: 4px;
+/* Tipo combinato "Spinta + Trazione" su una giornata con due allenamenti */
+.day-category-double {
+  color: var(--accent);
 }
-
-.day-second-clickable {
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.day-second-clickable:hover {
-  background: rgba(232, 255, 71, 0.05);
-}
-
-.day-second-left {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.day-second-label {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 17px;
-  letter-spacing: 0.05em;
-  color: var(--text);
-  line-height: 1;
-}
-
-.day-second-meta {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-}
-
-.day-second-meta[data-type="spinta"]    { color: #7eb8ff; }
-.day-second-meta[data-type="trazione"]  { color: #c084fc; }
-.day-second-meta[data-type="gambe"]     { color: #4ade80; }
-.day-second-meta[data-type="core"]      { color: #fb923c; }
-.day-second-meta[data-type="cardio"]    { color: #f87171; }
-.day-second-meta[data-type="full-body"] { color: var(--accent); }
-.day-second-meta[data-type="mobilita"]  { color: #2dd4bf; }
-
-.day-second-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.day-second-done   { border-top-color: rgba(113, 240, 167, 0.35); }
-.day-second-missed { border-top-color: rgba(255, 92, 53, 0.35); }
-.day-second-live,
-.day-second-paused { border-top-color: rgba(232, 255, 71, 0.35); }
 
 /* ──── Workout Move Menu ──── */
 .workout-move-menu {
@@ -791,6 +732,79 @@ select:focus {
   border-radius: 18px;
   padding: 22px;
   margin-bottom: 8px;
+}
+
+/* ──── Sezione di un singolo allenamento dentro il dettaglio ──── */
+/* Due allenamenti nello stesso giorno = due sezioni impilate, ciascuna con
+   il proprio start/timer, separate da una linea. */
+.workout-section + .workout-section {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.workout-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.workout-section-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.workout-section-order {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.workout-section-type {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.workout-section-type[data-type="spinta"]    { color: #7eb8ff; }
+.workout-section-type[data-type="trazione"]  { color: #c084fc; }
+.workout-section-type[data-type="gambe"]     { color: #4ade80; }
+.workout-section-type[data-type="core"]      { color: #fb923c; }
+.workout-section-type[data-type="cardio"]    { color: #f87171; }
+.workout-section-type[data-type="full-body"] { color: var(--accent); }
+.workout-section-type[data-type="mobilita"]  { color: #2dd4bf; }
+
+.workout-section-status {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.workout-section-headright {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.workout-section-headright .workout-timer {
+  font-size: 28px;
+}
+
+.workout-section-headright .workout-completed-summary {
+  font-size: 18px;
+}
+
+.workout-section .workout-actions {
+  margin-bottom: 16px;
 }
 
 .exercise-timeline {

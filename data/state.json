@@ -82,30 +82,192 @@
   },
   "weekTemplate": {
     "lunedi": [
-      "Front Chest Press",
-      "Incline Press",
-      "Butterfly",
-      "Seated Front Raise",
-      "Triceps Extension",
-      "Alzate laterali manubri seduto"
+      {
+        "name": "Front Chest Press",
+        "category": "Spinta",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 10
+      },
+      {
+        "name": "Incline Press",
+        "category": "Spinta",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 10
+      },
+      {
+        "name": "Butterfly",
+        "category": "Spinta",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Seated Front Raise",
+        "category": "Spinta",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Triceps Extension",
+        "category": "Spinta",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Alzate laterali manubri seduto",
+        "category": "Spinta",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      }
     ],
     "martedi": [],
     "mercoledi": [
-      "Lat Machine",
-      "Lat Machine Inverse",
-      "Rowing",
-      "Biceps Curl",
-      "Arm Curl",
-      "Curl bilanciere in piedi"
+      {
+        "name": "Lat Machine",
+        "category": "Trazione",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 10
+      },
+      {
+        "name": "Lat Machine Inverse",
+        "category": "Trazione",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 10
+      },
+      {
+        "name": "Rowing",
+        "category": "Trazione",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 10
+      },
+      {
+        "name": "Biceps Curl",
+        "category": "Trazione",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Arm Curl",
+        "category": "Trazione",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Curl bilanciere in piedi",
+        "category": "Trazione",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      }
     ],
     "giovedi": [],
     "venerdi": [
-      "Leg Press",
-      "Leg Extension",
-      "Standing Leg Curl",
-      "Hip Abduction",
-      "Glute Kick Back",
-      "Bulgarian split squat con manubri"
+      {
+        "name": "Leg Press",
+        "category": "Gambe",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 10
+      },
+      {
+        "name": "Leg Extension",
+        "category": "Gambe",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Standing Leg Curl",
+        "category": "Gambe",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 12
+      },
+      {
+        "name": "Hip Abduction",
+        "category": "Gambe",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 15
+      },
+      {
+        "name": "Glute Kick Back",
+        "category": "Gambe",
+        "trainingType": "ipertrofia",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 60,
+        "sets": 3,
+        "reps": 15
+      },
+      {
+        "name": "Bulgarian split squat con manubri",
+        "category": "Gambe",
+        "trainingType": "forza",
+        "supportsWeight": true,
+        "weight": null,
+        "restSeconds": 90,
+        "sets": 3,
+        "reps": 8
+      }
     ],
     "sabato": [],
     "domenica": []
@@ -119,6 +281,8 @@
     "sabato": null,
     "domenica": null
   },
+  "weekTemplate2": {},
+  "weekTemplateTypes2": {},
   "progress": {},
   "personal": {
     "profileName": "Paolo Bini",
@@ -136,8 +300,84 @@
       }
     ]
   },
-  "workoutSessions": {},
-  "weekTemplate2": {},
-  "weekTemplateTypes2": {},
-  "exerciseMeta": {}
+  "exerciseMeta": {},
+  "workoutSessions": {
+    "2026-05-01": {
+      "date": "2026-05-01",
+      "day": "venerdi",
+      "trainingType": "Gambe",
+      "status": "completed",
+      "exercises": [
+        {
+          "name": "Leg Press",
+          "category": "Gambe",
+          "trainingType": "forza",
+          "supportsWeight": true,
+          "weight": null,
+          "restSeconds": 60,
+          "sets": 3,
+          "reps": 10,
+          "completed": true
+        },
+        {
+          "name": "Leg Extension",
+          "category": "Gambe",
+          "trainingType": "ipertrofia",
+          "supportsWeight": true,
+          "weight": null,
+          "restSeconds": 60,
+          "sets": 3,
+          "reps": 12,
+          "completed": true
+        },
+        {
+          "name": "Standing Leg Curl",
+          "category": "Gambe",
+          "trainingType": "ipertrofia",
+          "supportsWeight": true,
+          "weight": null,
+          "restSeconds": 60,
+          "sets": 3,
+          "reps": 12,
+          "completed": true
+        },
+        {
+          "name": "Hip Abduction",
+          "category": "Gambe",
+          "trainingType": "ipertrofia",
+          "supportsWeight": true,
+          "weight": null,
+          "restSeconds": 60,
+          "sets": 3,
+          "reps": 15,
+          "completed": true
+        },
+        {
+          "name": "Glute Kick Back",
+          "category": "Gambe",
+          "trainingType": "ipertrofia",
+          "supportsWeight": true,
+          "weight": null,
+          "restSeconds": 60,
+          "sets": 3,
+          "reps": 15,
+          "completed": true
+        },
+        {
+          "name": "Bulgarian split squat con manubri",
+          "category": "Gambe",
+          "trainingType": "forza",
+          "supportsWeight": true,
+          "weight": null,
+          "restSeconds": 90,
+          "sets": 3,
+          "reps": 8,
+          "completed": true
+        }
+      ],
+      "durationSeconds": 3600,
+      "activeStartedAt": null,
+      "completedAt": "2026-05-01T10:00:00.000Z"
+    }
+  }
 }

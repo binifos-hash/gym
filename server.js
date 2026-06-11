@@ -79,7 +79,9 @@ async function readState() {
   let dirty = false;
   Object.keys(state.workoutSessions).forEach((key) => {
     const s = state.workoutSessions[key];
-    if (s.status === "planned" || (s.status === "missed" && key < todayKey)) {
+    // Le chiavi del 2º allenamento hanno suffisso "#2": confronta la data reale.
+    const sessionDate = (s && s.date) || key.split("#")[0];
+    if (s.status === "planned" || (s.status === "missed" && sessionDate < todayKey)) {
       delete state.workoutSessions[key];
       dirty = true;
     }

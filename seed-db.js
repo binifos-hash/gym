@@ -137,6 +137,11 @@ const state = {
     domenica: null
   },
 
+  // Secondo allenamento opzionale della giornata: vuoto di default,
+  // si popola dall'editor scegliendo "Allenamento 2".
+  weekTemplate2: {},
+  weekTemplateTypes2: {},
+
   progress: {},
 
   personal: {
@@ -190,4 +195,10 @@ async function seed() {
   await pool.end();
 }
 
-seed().catch((e) => { console.error("❌ Errore seed:", e); process.exit(1); });
+// Esegui il seed solo quando lanciato direttamente (`node seed-db.js`).
+// Quando il file viene richiesto da un altro script esponiamo solo lo stato.
+if (require.main === module) {
+  seed().catch((e) => { console.error("❌ Errore seed:", e); process.exit(1); });
+}
+
+module.exports = { state };
