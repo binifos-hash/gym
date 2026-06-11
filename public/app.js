@@ -2212,7 +2212,7 @@ function renderWeekCards() {
         });
         moveBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          openWorkoutMoveMenu(day, moveBtn);
+          openWorkoutMoveMenu(day);
         });
 
         workoutFooter.appendChild(moveBtn);
@@ -2307,76 +2307,99 @@ async function moveWorkoutToDay(fromDay, toDay) {
   }
 }
 
-function openWorkoutMoveMenu(fromDay, triggerBtn) {
-  // Close existing menu if any
-  const existingMenu = document.querySelector(".workout-move-menu");
-  if (existingMenu) existingMenu.remove();
+// Tipi combinati di un giorno (slot 1 + slot 2), es. "Spinta + Trazione".
+function getDayTypesLabel(day) {
+  const t1 = (state.weekTemplateTypes && state.weekTemplateTypes[day]) || null;
+  const t2 = (state.weekTemplateTypes2 && state.weekTemplateTypes2[day]) || null;
+  return [t1, t2].filter(Boolean).join(" + ");
+}
 
-  const menu = document.createElement("div");
-  menu.className = "workout-move-menu";
+function dayHasWorkout(day) {
+  return (state.weekTemplate[day] || []).length > 0
+    || (state.weekTemplate2[day] || []).length > 0;
+}
 
-  const title = document.createElement("div");
-  title.className = "workout-move-menu-title";
-  title.textContent = "Sposta o scambia con:";
-  menu.appendChild(title);
+// Modale centrato (con sfondo scurito) per spostare/scambiare un allenamento.
+// È una finestra a sé: niente sovrapposizioni o disallineamenti con le card.
+function openWorkoutMoveMenu(fromDay) {
+  const existing = document.querySelector(".workout-move-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "workout-move-modal";
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "workout-move-backdrop";
+  overlay.appendChild(backdrop);
+
+  const panel = document.createElement("div");
+  panel.className = "workout-move-panel panel-card";
+
+  const head = document.createElement("div");
+  head.className = "workout-move-head";
+
+  const headText = document.createElement("div");
+  const title = document.createElement("h3");
+  title.className = "workout-move-title";
+  const fromTypes = getDayTypesLabel(fromDay);
+  title.textContent = `Sposta ${dayLabels[fromDay]}`;
+  const subtitle = document.createElement("p");
+  subtitle.className = "workout-move-subtitle";
+  subtitle.textContent = fromTypes
+    ? `${fromTypes} → scegli il giorno di destinazione`
+    : "Scegli il giorno di destinazione";
+  headText.appendChild(title);
+  headText.appendChild(subtitle);
+  head.appendChild(headText);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "drawer-close";
+  closeBtn.type = "button";
+  closeBtn.textContent = "✕";
+  head.appendChild(closeBtn);
+  panel.appendChild(head);
 
   const daysList = document.createElement("div");
-  daysList.className = "workout-move-menu-days";
+  daysList.className = "workout-move-days";
 
   days.forEach((targetDay) => {
-    if (targetDay === fromDay) return; // Skip current day
+    if (targetDay === fromDay) return; // Salta il giorno di partenza
 
-    const targetHasWorkout = (state.weekTemplate[targetDay] || []).length > 0
-      || (state.weekTemplate2[targetDay] || []).length > 0;
-    const targetType = (state.weekTemplateTypes && state.weekTemplateTypes[targetDay]) || null;
+    const targetHasWorkout = dayHasWorkout(targetDay);
+    const targetTypes = getDayTypesLabel(targetDay);
 
     const dayBtn = document.createElement("button");
-    dayBtn.className = `workout-move-menu-day-btn ${targetHasWorkout ? "is-swap" : "is-empty"}`;
+    dayBtn.className = `workout-move-day ${targetHasWorkout ? "is-swap" : "is-empty"}`;
     dayBtn.type = "button";
 
-    const main = document.createElement("span");
-    main.className = "wm-day-name";
-    main.textContent = dayLabels[targetDay];
+    const name = document.createElement("span");
+    name.className = "wm-day-name";
+    name.textContent = dayLabels[targetDay];
 
     const sub = document.createElement("span");
     sub.className = "wm-day-sub";
     sub.textContent = targetHasWorkout
-      ? `Scambia · ${targetType || "Allenamento"}`
+      ? `Scambia · ${targetTypes || "Allenamento"}`
       : "Giorno libero";
 
-    dayBtn.appendChild(main);
+    dayBtn.appendChild(name);
     dayBtn.appendChild(sub);
 
-    dayBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      menu.remove();
+    dayBtn.addEventListener("click", async () => {
+      overlay.remove();
       await moveWorkoutToDay(fromDay, targetDay);
     });
 
     daysList.appendChild(dayBtn);
   });
 
-  menu.appendChild(daysList);
+  panel.appendChild(daysList);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 
-  // Position menu near button
-  const rect = triggerBtn.getBoundingClientRect();
-  menu.style.position = "fixed";
-  menu.style.top = (rect.bottom + 8) + "px";
-  menu.style.left = Math.max(8, Math.min(window.innerWidth - 240, rect.left - 40)) + "px";
-
-  document.body.appendChild(menu);
-
-  // Close menu on outside click
-  const closeMenu = (e) => {
-    if (!menu.contains(e.target) && !triggerBtn.contains(e.target)) {
-      menu.remove();
-      document.removeEventListener("click", closeMenu);
-    }
-  };
-
-  setTimeout(() => {
-    document.addEventListener("click", closeMenu);
-  }, 0);
+  const close = () => overlay.remove();
+  closeBtn.addEventListener("click", close);
+  backdrop.addEventListener("click", close);
 }
 
 function getAllExercises() {
