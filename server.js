@@ -382,9 +382,9 @@ app.put("/api/exercise-meta", async (req, res) => {
   }
 });
 
-app.put("/api/move-exercise", async (req, res) => {
+app.put("/api/move-workout", async (req, res) => {
   try {
-    const { fromDay, toDay } = req.body;
+    const { fromDay, fromSlot, toDay } = req.body;
 
     const validDays = [
       "lunedi",
@@ -401,8 +401,10 @@ app.put("/api/move-exercise", async (req, res) => {
     }
 
     if (fromDay === toDay) {
-      return res.status(400).json({ error: "Non puoi spostare in lo stesso giorno" });
+      return res.status(400).json({ error: "Non puoi spostare nello stesso giorno" });
     }
+
+    const slot = fromSlot === 2 ? 2 : 1;
 
     const state = await readState();
 
@@ -416,36 +418,48 @@ app.put("/api/move-exercise", async (req, res) => {
       state.weekTemplateTypes2 = {};
     }
 
-    // Scambia interi allenamenti tra due giorni (template + tipo) in modo simmetrico.
-    // Funziona sia spostando su un giorno di riposo sia scambiando due giorni pieni.
-    // Lo scambio coinvolge entrambi gli slot della giornata (1º e 2º allenamento).
-    const swapEntries = (map, a, b) => {
-      const fromValue = map[a];
-      const toValue = map[b];
-
-      if (toValue !== undefined && toValue !== null) {
-        map[a] = toValue;
-      } else {
-        delete map[a];
-      }
-
-      if (fromValue !== undefined && fromValue !== null) {
-        map[b] = fromValue;
-      } else {
-        delete map[b];
-      }
+    // Mappe template/tipo per slot (1 = principale, 2 = secondo allenamento).
+    const tmplMap = (s) => (s === 2 ? state.weekTemplate2 : state.weekTemplate);
+    const typeMap = (s) => (s === 2 ? state.weekTemplateTypes2 : state.weekTemplateTypes);
+    const getTemplate = (day, s) => (Array.isArray(tmplMap(s)[day]) ? tmplMap(s)[day] : []);
+    const getType = (day, s) => typeMap(s)[day] || null;
+    const setSlot = (day, s, template, type) => {
+      tmplMap(s)[day] = template;
+      if (type) typeMap(s)[day] = type;
+      else delete typeMap(s)[day];
     };
 
-    state.weekTemplate[fromDay] = state.weekTemplate[fromDay] || [];
-    state.weekTemplate[toDay] = state.weekTemplate[toDay] || [];
-    swapEntries(state.weekTemplate, fromDay, toDay);
-    swapEntries(state.weekTemplateTypes, fromDay, toDay);
-    swapEntries(state.weekTemplate2, fromDay, toDay);
-    swapEntries(state.weekTemplateTypes2, fromDay, toDay);
+    // Allenamento di partenza
+    const sourceTemplate = getTemplate(fromDay, slot);
+    const sourceType = getType(fromDay, slot);
+    if (!sourceTemplate.length) {
+      return res.status(400).json({ error: "Nessun allenamento da spostare in quello slot" });
+    }
+
+    // Occupazione del giorno di destinazione
+    const targetSlot1Full = getTemplate(toDay, 1).length > 0;
+    const targetSlot2Full = getTemplate(toDay, 2).length > 0;
+    if (targetSlot1Full && targetSlot2Full) {
+      return res.status(409).json({ error: "Il giorno selezionato ha già due allenamenti" });
+    }
+
+    // Inserisci nello slot libero del giorno destinazione (1º se libero, altrimenti 2º).
+    const targetSlot = targetSlot1Full ? 2 : 1;
+    setSlot(toDay, targetSlot, sourceTemplate, sourceType);
+
+    // Svuota lo slot di partenza
+    setSlot(fromDay, slot, [], null);
+
+    // Compatta il giorno di partenza: se il 1º è vuoto ma il 2º è pieno, risali.
+    if (getTemplate(fromDay, 1).length === 0 && getTemplate(fromDay, 2).length > 0) {
+      setSlot(fromDay, 1, getTemplate(fromDay, 2), getType(fromDay, 2));
+      setSlot(fromDay, 2, [], null);
+    }
 
     await writeState(state);
     return res.json({
       ok: true,
+      merged: targetSlot === 2,
       weekTemplate: state.weekTemplate,
       weekTemplateTypes: state.weekTemplateTypes,
       weekTemplate2: state.weekTemplate2,

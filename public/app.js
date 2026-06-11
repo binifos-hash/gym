@@ -2010,9 +2010,6 @@ function renderWeekCards() {
   const { monday } = getWeekContext();
   weekContainerEl.innerHTML = "";
 
-  // Shared across all cards in this render pass: which weekday is currently being dragged
-  let draggingFromDay = null;
-
   const STATUS_LABELS = {
     done: "Completato",
     missed: "Perso",
@@ -2020,22 +2017,6 @@ function renderWeekCards() {
     live: "In corso",
     planned: "Programmato",
     rest: "Riposo"
-  };
-
-  const clearDropHints = () => {
-    document.querySelectorAll(".day-card").forEach((c) => {
-      c.classList.remove("day-card-drop-available", "day-card-drag-over", "dragging");
-    });
-  };
-
-  const beginDrag = (fromDay, e, sourceEl) => {
-    draggingFromDay = fromDay;
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("application/json", JSON.stringify({ fromDay }));
-    sourceEl.classList.add("dragging");
-    document.querySelectorAll(".day-card").forEach((c) => {
-      if (c.dataset.day !== fromDay) c.classList.add("day-card-drop-available");
-    });
   };
 
   days.forEach((day, index) => {
@@ -2085,9 +2066,6 @@ function renderWeekCards() {
       return sum + (s.session && s.session.status === "completed" ? (s.session.durationSeconds || 0) : 0);
     }, 0);
 
-    const anyTemplate = activeSlots.some((s) => s.hasTemplate);
-    // Spostabile se c'è almeno un template e non è tutto già completato.
-    const canMove = anyTemplate && !allCompleted;
     const canOpenDetail = !isRest && activeSlots.some((s) => s.session || (s.hasTemplate && !isPast));
 
     const card = document.createElement("div");
@@ -2095,35 +2073,6 @@ function renderWeekCards() {
       + (dateKey === getTodayKey() ? " day-card-today" : "")
       + (allCompleted ? " day-card-locked" : "");
     card.dataset.day = day;
-    card.setAttribute("data-drop-zone", day);
-
-    // Any day can receive a moved workout (rest days included), except the dragged one itself
-    card.addEventListener("dragover", (e) => {
-      if (!draggingFromDay || draggingFromDay === day) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      card.classList.add("day-card-drag-over");
-    });
-
-    card.addEventListener("dragleave", (e) => {
-      if (e.target === card) {
-        card.classList.remove("day-card-drag-over");
-      }
-    });
-
-    card.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      card.classList.remove("day-card-drag-over");
-
-      let fromDay = draggingFromDay;
-      const dragData = e.dataTransfer.getData("application/json");
-      if (dragData) {
-        try { fromDay = JSON.parse(dragData).fromDay || fromDay; } catch (err) { /* ignore */ }
-      }
-      if (!fromDay || fromDay === day) return;
-      await moveWorkoutToDay(fromDay, day);
-    });
 
     const head = document.createElement("div");
     head.className = "day-header";
@@ -2182,7 +2131,7 @@ function renderWeekCards() {
     head.appendChild(right);
     card.appendChild(head);
 
-    // Footer with exercise count + move affordance (or a lock when completed)
+    // Footer with exercise count + move buttons (one per workout) or a lock.
     if (!isRest) {
       const workoutFooter = document.createElement("div");
       workoutFooter.className = "day-workout-footer";
@@ -2193,29 +2142,33 @@ function renderWeekCards() {
       exerciseCount.textContent = isDouble ? `2 allenamenti · ${countText}` : countText;
       workoutFooter.appendChild(exerciseCount);
 
-      if (canMove) {
-        const moveBtn = document.createElement("button");
-        moveBtn.className = "day-move-btn";
-        moveBtn.type = "button";
-        moveBtn.draggable = true;
-        moveBtn.innerHTML = `<span class="day-move-btn-icon" aria-hidden="true">⇄</span> Sposta`;
-        moveBtn.title = "Sposta o scambia l'allenamento con un altro giorno";
+      // Uno slot è spostabile se è programmato e la sua sessione non è completata.
+      const movableSlots = activeSlots.filter(
+        (s) => s.hasTemplate && !(s.session && s.session.status === "completed")
+      );
 
-        moveBtn.addEventListener("dragstart", (e) => {
-          e.stopPropagation();
-          beginDrag(day, e, moveBtn);
-        });
-        moveBtn.addEventListener("dragend", (e) => {
-          e.stopPropagation();
-          draggingFromDay = null;
-          clearDropHints();
-        });
-        moveBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          openWorkoutMoveMenu(day);
+      if (movableSlots.length) {
+        const moveActions = document.createElement("div");
+        moveActions.className = "day-move-actions";
+
+        movableSlots.forEach((s) => {
+          const moveBtn = document.createElement("button");
+          moveBtn.className = "day-move-btn";
+          moveBtn.type = "button";
+          // Con due allenamenti i pulsanti distinguono lo slot: "Sposta 1" / "Sposta 2".
+          const label = isDouble ? `Sposta ${s.slot}` : "Sposta";
+          moveBtn.innerHTML = `<span class="day-move-btn-icon" aria-hidden="true">⇄</span> ${label}`;
+          moveBtn.title = isDouble
+            ? `Sposta il ${s.slot}º allenamento (${s.type || "Allenamento"}) in un altro giorno`
+            : "Sposta l'allenamento in un altro giorno";
+          moveBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openWorkoutMoveMenu(day, s.slot);
+          });
+          moveActions.appendChild(moveBtn);
         });
 
-        workoutFooter.appendChild(moveBtn);
+        workoutFooter.appendChild(moveActions);
       } else if (allCompleted) {
         const lock = document.createElement("span");
         lock.className = "day-move-locked";
@@ -2225,21 +2178,6 @@ function renderWeekCards() {
       }
 
       card.appendChild(workoutFooter);
-    }
-
-    // Whole card draggable (grab from the body/header) when the workout can be moved
-    if (canMove) {
-      card.draggable = true;
-      card.addEventListener("dragstart", (e) => {
-        if (e.target.closest && e.target.closest(".day-move-btn")) return; // handled by the button
-        e.stopPropagation();
-        beginDrag(day, e, card);
-      });
-      card.addEventListener("dragend", (e) => {
-        e.stopPropagation();
-        draggingFromDay = null;
-        clearDropHints();
-      });
     }
 
     weekContainerEl.appendChild(card);
@@ -2274,36 +2212,40 @@ function showToast(message) {
   toastTimeoutId = setTimeout(() => toast.classList.remove("gym-toast-show"), 2600);
 }
 
-async function moveWorkoutToDay(fromDay, toDay) {
-  const targetHadWorkout = (state.weekTemplate[toDay] || []).length > 0
-    || (state.weekTemplate2[toDay] || []).length > 0;
+// Sposta UN allenamento (giorno + slot) verso un altro giorno. Se la
+// destinazione ha già un allenamento, il server li unisce (diventa il 2º);
+// se ne ha già due, rifiuta e mostriamo l'errore.
+async function moveWorkout(fromDay, fromSlot, toDay) {
   try {
-    const res = await fetch("/api/move-exercise", {
+    const res = await fetch("/api/move-workout", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fromDay, toDay })
+      body: JSON.stringify({ fromDay, fromSlot, toDay })
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      state.weekTemplate = data.weekTemplate;
-      state.weekTemplateTypes = data.weekTemplateTypes;
-      if (data.weekTemplate2) state.weekTemplate2 = data.weekTemplate2;
-      if (data.weekTemplateTypes2) state.weekTemplateTypes2 = data.weekTemplateTypes2;
-      normalizeWeekTemplate();
-      syncWorkoutSessionsRange();
-      renderWeekCards();
-      renderCalendar();
-      renderEditor();
-      showToast(targetHadWorkout
-        ? `Scambiato con ${dayLabels[toDay]}`
-        : `Spostato a ${dayLabels[toDay]}`);
-    } else {
-      alert("Errore nello spostamento");
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      showToast(data.error || "Spostamento non riuscito");
+      return;
     }
+
+    state.weekTemplate = data.weekTemplate;
+    state.weekTemplateTypes = data.weekTemplateTypes;
+    state.weekTemplate2 = data.weekTemplate2 || {};
+    state.weekTemplateTypes2 = data.weekTemplateTypes2 || {};
+    normalizeWeekTemplate();
+    syncWorkoutSessionsRange();
+    renderWeekCards();
+    renderCalendar();
+    renderEditor();
+
+    showToast(data.merged
+      ? `Unito a ${dayLabels[toDay]} come 2º allenamento`
+      : `Spostato a ${dayLabels[toDay]}`);
   } catch (err) {
     console.error("Move workout error:", err);
-    alert("Errore nello spostamento allenamento");
+    showToast("Errore nello spostamento allenamento");
   }
 }
 
@@ -2314,14 +2256,26 @@ function getDayTypesLabel(day) {
   return [t1, t2].filter(Boolean).join(" + ");
 }
 
-function dayHasWorkout(day) {
-  return (state.weekTemplate[day] || []).length > 0
-    || (state.weekTemplate2[day] || []).length > 0;
+function getSlotType(day, slot) {
+  const typesMap = slot === 2 ? state.weekTemplateTypes2 : state.weekTemplateTypes;
+  return (typesMap && typesMap[day]) || null;
 }
 
-// Modale centrato (con sfondo scurito) per spostare/scambiare un allenamento.
-// È una finestra a sé: niente sovrapposizioni o disallineamenti con le card.
-function openWorkoutMoveMenu(fromDay) {
+// Quanti allenamenti (0, 1 o 2) ha un giorno.
+function countDayWorkouts(day) {
+  let n = 0;
+  if ((state.weekTemplate[day] || []).length > 0) n += 1;
+  if ((state.weekTemplate2[day] || []).length > 0) n += 1;
+  return n;
+}
+
+// Modale centrato (con sfondo scurito) per spostare UN allenamento (giorno+slot)
+// in un altro giorno. La destinazione può essere libera, avere già un
+// allenamento (→ unione, diventa il 2º) o esserne piena (→ disabilitata).
+function openWorkoutMoveMenu(fromDay, fromSlot) {
+  const slot = fromSlot === 2 ? 2 : 1;
+  const isDoubleSource = countDayWorkouts(fromDay) > 1;
+
   const existing = document.querySelector(".workout-move-modal");
   if (existing) existing.remove();
 
@@ -2341,12 +2295,15 @@ function openWorkoutMoveMenu(fromDay) {
   const headText = document.createElement("div");
   const title = document.createElement("h3");
   title.className = "workout-move-title";
-  const fromTypes = getDayTypesLabel(fromDay);
-  title.textContent = `Sposta ${dayLabels[fromDay]}`;
+  const fromType = getSlotType(fromDay, slot);
+  // Col doppio allenamento specifichiamo quale stiamo spostando.
+  title.textContent = isDoubleSource
+    ? `Sposta ${slot}º allenamento di ${dayLabels[fromDay]}`
+    : `Sposta ${dayLabels[fromDay]}`;
   const subtitle = document.createElement("p");
   subtitle.className = "workout-move-subtitle";
-  subtitle.textContent = fromTypes
-    ? `${fromTypes} → scegli il giorno di destinazione`
+  subtitle.textContent = fromType
+    ? `${fromType} → scegli il giorno di destinazione`
     : "Scegli il giorno di destinazione";
   headText.appendChild(title);
   headText.appendChild(subtitle);
@@ -2365,12 +2322,16 @@ function openWorkoutMoveMenu(fromDay) {
   days.forEach((targetDay) => {
     if (targetDay === fromDay) return; // Salta il giorno di partenza
 
-    const targetHasWorkout = dayHasWorkout(targetDay);
+    const targetCount = countDayWorkouts(targetDay);
+    const isFull = targetCount >= 2;
+    const isMerge = targetCount === 1;
     const targetTypes = getDayTypesLabel(targetDay);
 
     const dayBtn = document.createElement("button");
-    dayBtn.className = `workout-move-day ${targetHasWorkout ? "is-swap" : "is-empty"}`;
+    dayBtn.className = "workout-move-day"
+      + (isFull ? " is-full" : isMerge ? " is-merge" : " is-empty");
     dayBtn.type = "button";
+    dayBtn.disabled = isFull;
 
     const name = document.createElement("span");
     name.className = "wm-day-name";
@@ -2378,17 +2339,23 @@ function openWorkoutMoveMenu(fromDay) {
 
     const sub = document.createElement("span");
     sub.className = "wm-day-sub";
-    sub.textContent = targetHasWorkout
-      ? `Scambia · ${targetTypes || "Allenamento"}`
-      : "Giorno libero";
+    if (isFull) {
+      sub.textContent = `Pieno · 2 allenamenti (${targetTypes})`;
+    } else if (isMerge) {
+      sub.textContent = `Unisci · diventa 2º con ${targetTypes || "l'allenamento esistente"}`;
+    } else {
+      sub.textContent = "Giorno libero";
+    }
 
     dayBtn.appendChild(name);
     dayBtn.appendChild(sub);
 
-    dayBtn.addEventListener("click", async () => {
-      overlay.remove();
-      await moveWorkoutToDay(fromDay, targetDay);
-    });
+    if (!isFull) {
+      dayBtn.addEventListener("click", async () => {
+        overlay.remove();
+        await moveWorkout(fromDay, slot, targetDay);
+      });
+    }
 
     daysList.appendChild(dayBtn);
   });
