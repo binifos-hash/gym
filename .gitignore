@@ -1,0 +1,2 @@
+# Backup locali del DB Neon: contengono dati personali, non vanno committati/pushati
+data/neon-backup-*.json
