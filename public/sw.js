@@ -7,7 +7,7 @@
 //   • Non-GET requests   → always go to the network (never cached). Writes made
 //                          while offline simply fail, as they did before.
 // Bump CACHE_VERSION whenever the shell assets change to force an update.
-const CACHE_VERSION = "gymplanner-v2";
+const CACHE_VERSION = "gymplanner-v3";
 
 const APP_SHELL = [
   "/",
