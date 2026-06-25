@@ -70,7 +70,14 @@ async function readState() {
     const { rows } = await pgPool.query("SELECT data FROM app_state WHERE id = 1");
     state = ensureStateShape(rows[0]?.data || {});
   } else {
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    let raw = "{}";
+    try {
+      raw = fs.readFileSync(DATA_FILE, "utf8");
+    } catch (err) {
+      // In dev senza DATABASE_URL il file può non esistere ancora: parti da
+      // uno stato vuoto, verrà creato al primo salvataggio.
+      if (err.code !== "ENOENT") throw err;
+    }
     state = ensureStateShape(JSON.parse(raw));
   }
 
@@ -99,6 +106,7 @@ async function writeState(state) {
       [shaped]
     );
   } else {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
     fs.writeFileSync(DATA_FILE, JSON.stringify(shaped, null, 2), "utf8");
   }
 }
