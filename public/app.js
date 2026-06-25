@@ -150,6 +150,40 @@ const EXERCISE_DEFAULTS = {
     description: "Seduto su panca, un manubrio sorretto con entrambe le mani sopra la testa, braccia estese. Abbassa il manubrio dietro la nuca piegando i gomiti (che puntano al soffitto), poi estendi risalendo. 3 serie × 12 rip · recupero 60s",
     videoUrl: ""
   },
+  "Spinte manubri panca inclinata": {
+    weight: 10,
+    description: "Sdraiato su panca inclinata a 30-45°, manubri all'altezza della parte alta del petto con gomiti a circa 45° rispetto al busto. Spingi verso l'alto convergendo leggermente i manubri, abbassa lentamente sentendo lo stiramento sul petto alto. Non rimbalzare il peso. 4 serie × 10 rip · recupero 90s",
+    videoUrl: ""
+  },
+  "Croci manubri panca inclinata": {
+    weight: 6,
+    description: "Sdraiato su panca inclinata a 30°, manubri sopra il petto con gomiti leggermente flessi e fermi per tutto il movimento. Apri le braccia ad arco fino a sentire lo stiramento sui pettorali, poi richiudi contraendo il petto come per 'abbracciare' un albero. Lento e controllato. 3 serie × 12 rip · recupero 75s",
+    videoUrl: ""
+  },
+  "Plank": {
+    description: "Appoggiato sugli avambracci e sulle punte dei piedi, corpo in linea retta dalla testa ai talloni. Contrai addome e glutei senza far cadere il bacino né alzarlo troppo. Respira normalmente mantenendo la posizione (il valore 'rip' indica i secondi). 3 serie × 40 sec · recupero 45s",
+    videoUrl: ""
+  },
+  "Plank laterale": {
+    description: "Su un fianco, appoggiato sull'avambraccio con il gomito sotto la spalla e corpo in linea retta. Solleva il bacino contraendo gli obliqui e mantieni la posizione, poi ripeti sull'altro lato (il valore 'rip' indica i secondi per lato). 3 serie × 30 sec per lato · recupero 45s",
+    videoUrl: ""
+  },
+  "Crunch a terra": {
+    description: "Sdraiato supino, ginocchia piegate e piedi a terra, mani dietro la nuca o incrociate sul petto. Solleva le scapole da terra arricciando il busto e contraendo gli addominali, senza tirare il collo. Scendi lentamente senza appoggiare del tutto la schiena. 3 serie × 15 rip · recupero 45s",
+    videoUrl: ""
+  },
+  "Crunch inverso": {
+    description: "Sdraiato supino, gambe piegate a 90°, mani lungo i fianchi. Porta le ginocchia verso il petto sollevando il bacino da terra arricciando la parte bassa degli addominali. Il movimento parte dall'addome, non dallo slancio delle gambe. Scendi controllando. 3 serie × 15 rip · recupero 45s",
+    videoUrl: ""
+  },
+  "Crunch bicicletta": {
+    description: "Supino, mani dietro la nuca e gambe sollevate. Porta il gomito verso il ginocchio opposto 'pedalando' lentamente e ruotando il busto per coinvolgere gli obliqui. Alterna i lati in modo controllato, senza tirare il collo. 3 serie × 20 rip totali · recupero 45s",
+    videoUrl: ""
+  },
+  "Sit up completo": {
+    description: "Sdraiato supino, ginocchia piegate e piedi fermi a terra. Solleva tutto il busto fino a portarti seduto, poi torna giù controllando la discesa. Mantieni l'addome contratto per tutto il movimento, senza strappi. 3 serie × 12 rip · recupero 60s",
+    videoUrl: ""
+  },
   // -------- TOORX MSX-50 --------
   "Lat machine avanti presa larga": {
     weight: 15,
@@ -190,6 +224,11 @@ const EXERCISE_DEFAULTS = {
     weight: 8,
     description: "In piedi di fianco alla macchina, cavo all'altezza del petto. Con entrambe le mani tieni il manubrio davanti al petto. Spingi le braccia in avanti estendendole completamente, resistendo alla rotazione del busto (esercizio anti-rotazionale). Mantieni 2 secondi, ritorna. 3 serie × 10 rip per lato · recupero 60s",
     videoUrl: "https://youtu.be/wMtmj4TBsKY?si=Sw1U8XnoSl0GQx4y"
+  },
+  "Crunch al cavo in ginocchio": {
+    weight: 15,
+    description: "In ginocchio davanti al cavo alto con la corda dietro la nuca. Parti con il busto eretto e arriccia in avanti portando i gomiti verso le cosce, contraendo gli addominali — il bacino resta fermo, il movimento è della colonna. Risali controllando senza scaricare il peso. 3 serie × 15 rip · recupero 60s",
+    videoUrl: ""
   },
   "Bicipiti curl al cavo basso dritto": {
     weight: 10,

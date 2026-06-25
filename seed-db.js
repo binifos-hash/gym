@@ -45,7 +45,15 @@ const state = {
       "French press bilanciere su panca",
       "Estensioni tricipiti manubrio sopra testa",
       "Skull crusher bilanciere su panca",
-      "Calf raise con manubri"
+      "Calf raise con manubri",
+      "Spinte manubri panca inclinata",
+      "Croci manubri panca inclinata",
+      "Plank",
+      "Plank laterale",
+      "Crunch a terra",
+      "Crunch inverso",
+      "Crunch bicicletta",
+      "Sit up completo"
     ],
     toorx_msx50: [
       "Lat machine avanti presa larga",
@@ -92,7 +100,8 @@ const state = {
       "Pallof press al cavo",
       "Russian twist al cavo",
       "Deltoidi posteriori in croce ai cavi",
-      "Shrug al cavo basso"
+      "Shrug al cavo basso",
+      "Crunch al cavo in ginocchio"
     ]
   },
 
@@ -137,10 +146,20 @@ const state = {
     domenica: null
   },
 
-  // Secondo allenamento opzionale della giornata: vuoto di default,
-  // si popola dall'editor scegliendo "Allenamento 2".
-  weekTemplate2: {},
-  weekTemplateTypes2: {},
+  // Secondo allenamento opzionale della giornata: il lunedì ospita la sessione
+  // dedicata a pettorali + addominali (slot 2), oltre alla "Spinta" dello slot 1.
+  weekTemplate2: {
+    lunedi: [
+      { name: "Panca piana manubri",              category: "Spinta", trainingType: "forza",      supportsWeight: true,  weight: null, restSeconds: 90, sets: 4, reps: 10 },
+      { name: "Spinte manubri panca inclinata",   category: "Spinta", trainingType: "forza",      supportsWeight: true,  weight: null, restSeconds: 90, sets: 3, reps: 10 },
+      { name: "Chest press macchina",             category: "Spinta", trainingType: "ipertrofia", supportsWeight: true,  weight: null, restSeconds: 75, sets: 3, reps: 12 },
+      { name: "Croci ai cavi alti",               category: "Spinta", trainingType: "ipertrofia", supportsWeight: true,  weight: null, restSeconds: 60, sets: 3, reps: 12 },
+      { name: "Crunch al cavo in ginocchio",      category: "Core",   trainingType: "ipertrofia", supportsWeight: true,  weight: null, restSeconds: 60, sets: 3, reps: 15 },
+      { name: "Crunch inverso",                   category: "Core",   trainingType: "ipertrofia", supportsWeight: false, weight: null, restSeconds: 45, sets: 3, reps: 15 },
+      { name: "Plank",                            category: "Core",   trainingType: "ipertrofia", supportsWeight: false, weight: null, restSeconds: 45, sets: 3, reps: 40 }
+    ]
+  },
+  weekTemplateTypes2: { lunedi: "Core" },
 
   progress: {},
 
